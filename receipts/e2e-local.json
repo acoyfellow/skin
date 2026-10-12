@@ -1,11 +1,11 @@
 {
   "target": "local",
   "base": "http://localhost:8790",
-  "at": "2026-10-12T21:27:10.114Z",
-  "nonce": "cvy9hz",
+  "at": "2026-10-12T22:07:14.694Z",
+  "nonce": "tuf56i",
   "passed": 9,
   "total": 9,
-  "ms": 100297,
+  "ms": 102936,
   "results": [
     {
       "name": "the seed grows into a live generation that starts in a real browser",
@@ -21,7 +21,7 @@
         "errors": []
       },
       "pass": true,
-      "ms": 23253
+      "ms": 23416
     },
     {
       "name": "a change that does not bundle is rejected and the live app is untouched",
@@ -33,7 +33,7 @@
         "served": 1
       },
       "pass": true,
-      "ms": 92
+      "ms": 84
     },
     {
       "name": "a server that throws when it starts is rejected",
@@ -45,7 +45,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 13876
+      "ms": 14110
     },
     {
       "name": "a change that breaks a behavior the checks cover is rejected",
@@ -59,7 +59,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 13854
+      "ms": 14343
     },
     {
       "name": "data the server stores survives a new generation and a rollback",
@@ -68,7 +68,7 @@
         "status": 201
       },
       "pass": true,
-      "ms": 11
+      "ms": 10
     },
     {
       "name": "a good change goes live and renders in the browser",
@@ -77,9 +77,9 @@
         "generation": 5,
         "served": 5,
         "checks": [
-          "bundle:true:13762ms",
-          "boot:true:131ms",
-          "checks:true:11ms",
+          "bundle:true:13738ms",
+          "boot:true:172ms",
+          "checks:true:16ms",
           "page:true:0ms"
         ],
         "report": {
@@ -89,7 +89,7 @@
         }
       },
       "pass": true,
-      "ms": 20613
+      "ms": 20531
     },
     {
       "name": "a page that crashes in the browser is rolled back by the kernel on its own",
@@ -99,14 +99,17 @@
         "report": {
           "generation": 6,
           "ok": false,
-          "detail": "Uncaught Error: e2e cvy9hz: the page crashes on start"
+          "detail": "Uncaught Error: e2e tuf56i: the page crashes on start"
         },
+        "delivered": [
+          200
+        ],
         "liveAfter": 5,
         "status": "rejected",
-        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 5: Uncaught Error: e2e cvy9hz: the page crashes on start"
+        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 5: Uncaught Error: e2e tuf56i: the page crashes on start"
       },
       "pass": true,
-      "ms": 14288
+      "ms": 16085
     },
     {
       "name": "rolling back makes the seed live again and resets the draft to match",
@@ -117,26 +120,26 @@
         "notes": 1
       },
       "pass": true,
-      "ms": 39
+      "ms": 58
     },
     {
       "name": "another person gets their own app, untouched by everything above",
       "expected": "B grows their own first generation from the seed; B sees none of A's generations, files, or notes; A is unchanged",
       "observed": {
         "a": {
-          "user": "ufe5d79bcefa1fef9c1a2",
+          "user": "u92809db0105ec4ac5fcb",
           "generations": 6,
           "live": 1
         },
         "b": {
-          "user": "u08514093b8d296c87814",
+          "user": "uaeb2f36d3e9267a81da6",
           "generations": 1,
           "live": 1,
           "notes": 0
         }
       },
       "pass": true,
-      "ms": 14029
+      "ms": 14039
     }
   ]
 }

@@ -41,11 +41,17 @@ export const GUARD = `(() => {
 		}
 	};
 
+	const send = (body, attempt) =>
+		fetch("${REPORT_PATH}", { method: "POST", headers: { "content-type": "application/json" }, body, credentials: "same-origin" })
+			.then((response) => (response.ok || attempt >= 1 ? response.ok : send(body, attempt + 1)))
+			.catch(() => (attempt >= 1 ? false : send(body, attempt + 1)));
+
 	const report = (ok, detail) => {
-		if (settled || typeof generation !== "number") return;
+		if (settled || typeof generation !== "number") return Promise.resolve(false);
 
 		settled = true;
-		fetch("${REPORT_PATH}", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ generation, ok, detail: String(detail).slice(0, 1000) }), keepalive: true, credentials: "same-origin" }).catch(() => {});
+
+		return send(JSON.stringify({ generation, ok, detail: String(detail).slice(0, 1000) }), 0);
 	};
 
 	const consoleLink = ["Open console", () => location.assign("${KERNEL_PREFIX}/")];
@@ -57,10 +63,12 @@ export const GUARD = `(() => {
 
 		const beforeStart = !settled;
 
-		report(false, detail);
 		banner(beforeStart ? "Generation " + generation + " crashed while starting. The kernel is rolling back." : "Generation " + generation + " crashed: " + String(detail).slice(0, 160), [["Reload", () => location.reload()], consoleLink]);
+		report(false, detail).then((delivered) => {
+			if (beforeStart && !pinned && delivered) setTimeout(() => location.reload(), 1500);
 
-		if (beforeStart && !pinned) setTimeout(() => location.reload(), 2500);
+			if (!delivered) banner("Generation " + generation + " crashed, and the crash report did not reach the kernel. Roll back from the console.", [["Open console", () => location.assign("${KERNEL_PREFIX}/")]]);
+		});
 	};
 
 	addEventListener("error", (event) => {

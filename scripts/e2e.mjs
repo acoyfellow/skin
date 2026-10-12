@@ -88,20 +88,25 @@ const visit = async () => {
 	const page = await context.newPage();
 	const reports = [];
 	const errors = [];
+	const deliveries = [];
 
 	page.on("request", (request) => {
 		if (request.url().endsWith("/_kernel/api/report")) reports.push(JSON.parse(request.postData() ?? "{}"));
 	});
 	page.on("pageerror", (error) => errors.push(String(error)));
+	page.on("response", (response) => {
+		if (response.url().endsWith("/_kernel/api/report")) deliveries.push(response.status());
+	});
 	await page.goto(`${BASE}/`, { waitUntil: "load" });
 	await until("the crash guard to report", async () => reports.length > 0, 15_000);
+	await until("the kernel to answer the report", async () => deliveries.length > 0, 10_000).catch(() => undefined);
 
 	const text = (await page.innerText("body")).replace(/\s+/g, " ");
 	const generation = await page.evaluate(() => globalThis.__GENERATION__);
 
 	await context.close();
 
-	return { report: reports[0], text, generation, errors };
+	return { report: reports[0], delivered: deliveries, text, generation, errors };
 };
 
 const live = async () => (await state()).live;
@@ -223,6 +228,8 @@ await scenario("a page that crashes in the browser is rolled back by the kernel 
 
 	if (seen.report.ok) throw new Error("the guard reported ok for a page that throws on start");
 
+	if (!seen.delivered.includes(200)) throw new Error(`the crash report did not reach the kernel: HTTP ${JSON.stringify(seen.delivered)}`);
+
 	const after = await until("the kernel to roll back", async () => {
 		const current = await state();
 
@@ -235,7 +242,7 @@ await scenario("a page that crashes in the browser is rolled back by the kernel 
 
 	if (after.live !== good) throw new Error(`live is ${after.live}, expected the last good generation ${good}`);
 
-	return { crashed, report: seen.report, liveAfter: after.live, status: row?.status, note: row?.note };
+	return { crashed, report: seen.report, delivered: seen.delivered, liveAfter: after.live, status: row?.status, note: row?.note };
 });
 
 await scenario("rolling back makes the seed live again and resets the draft to match", "live is the seed; / serves it; the draft has the original title; the note is still there", async () => {
