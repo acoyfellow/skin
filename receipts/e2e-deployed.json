@@ -1,11 +1,11 @@
 {
   "target": "deployed",
   "base": "(deployed, behind Access)",
-  "at": "2026-10-12T22:01:36.793Z",
-  "nonce": "31tgyu",
-  "passed": 8,
+  "at": "2026-10-12T22:09:26.696Z",
+  "nonce": "pk3mae",
+  "passed": 9,
   "total": 9,
-  "ms": 121782,
+  "ms": 62936,
   "results": [
     {
       "name": "the seed grows into a live generation that starts in a real browser",
@@ -21,7 +21,7 @@
         "errors": []
       },
       "pass": true,
-      "ms": 18423
+      "ms": 9384
     },
     {
       "name": "a change that does not bundle is rejected and the live app is untouched",
@@ -33,19 +33,19 @@
         "served": 1
       },
       "pass": true,
-      "ms": 2815
+      "ms": 694
     },
     {
       "name": "a server that throws when it starts is rejected",
       "expected": "ship rejected at boot",
       "observed": {
-        "generation": 3,
+        "generation": 7,
         "failedCheck": "boot",
-        "detail": "GET /_body/health threw: Error: e2e 31tgyu: the server refuses to start",
+        "detail": "GET /_body/health threw: Error: e2e pk3mae: the server refuses to start",
         "live": 1
       },
       "pass": true,
-      "ms": 13349
+      "ms": 14346
     },
     {
       "name": "a change that breaks a behavior the checks cover is rejected",
@@ -59,7 +59,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 11957
+      "ms": 452
     },
     {
       "name": "data the server stores survives a new generation and a rollback",
@@ -68,35 +68,48 @@
         "status": 201
       },
       "pass": true,
-      "ms": 506
+      "ms": 709
     },
     {
       "name": "a good change goes live and renders in the browser",
       "expected": "ship live; / serves the new generation; the page shows the change",
       "observed": {
-        "generation": 5,
-        "served": 5,
+        "generation": 8,
+        "served": 8,
         "checks": [
-          "bundle:true:1204ms",
-          "boot:true:139ms",
+          "bundle:true:912ms",
+          "boot:true:131ms",
           "checks:true:0ms",
           "page:true:0ms"
         ],
         "report": {
-          "generation": 5,
+          "generation": 8,
           "ok": true,
           "detail": "rendered"
         }
       },
       "pass": true,
-      "ms": 20149
+      "ms": 19706
     },
     {
       "name": "a page that crashes in the browser is rolled back by the kernel on its own",
       "expected": "ship live (the server gate cannot see it); the first browser load reports a crash; live returns to the last good generation",
-      "observed": "timed out after 20000 ms waiting for the kernel to roll back",
-      "pass": false,
-      "ms": 38476
+      "observed": {
+        "crashed": 9,
+        "report": {
+          "generation": 9,
+          "ok": false,
+          "detail": "Uncaught Error: e2e pk3mae: the page crashes on start"
+        },
+        "delivered": [
+          200
+        ],
+        "liveAfter": 8,
+        "status": "rejected",
+        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 8: Uncaught Error: e2e pk3mae: the page crashes on start"
+      },
+      "pass": true,
+      "ms": 14593
     },
     {
       "name": "rolling back makes the seed live again and resets the draft to match",
@@ -104,10 +117,10 @@
       "observed": {
         "live": 1,
         "served": 1,
-        "notes": 1
+        "notes": 2
       },
       "pass": true,
-      "ms": 1191
+      "ms": 831
     },
     {
       "name": "another person gets their own app, untouched by everything above",
@@ -115,7 +128,7 @@
       "observed": {
         "a": {
           "user": "ueb4c6186d54bf7fb206b",
-          "generations": 6,
+          "generations": 9,
           "live": 1
         },
         "b": {
@@ -126,7 +139,7 @@
         }
       },
       "pass": true,
-      "ms": 13213
+      "ms": 1791
     }
   ]
 }
