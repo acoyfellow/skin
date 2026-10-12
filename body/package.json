@@ -1,0 +1,9 @@
+{
+  "name": "body",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "effect": "4.0.0",
+    "foldkit": "0.168.0"
+  }
+}

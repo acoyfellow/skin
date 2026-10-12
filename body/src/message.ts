@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
-import { ServerFrame } from "../../shared/protocol";
+import { ServerFrame } from "./kernel/protocol";
 
 export const Message = defineMessageUnion({
 	ReceivedFrame: { frame: ServerFrame },
@@ -20,6 +20,9 @@ export const Message = defineMessageUnion({
 	ToggledThought: { key: Schema.String },
 	Ticked: { now: Schema.Number },
 	CompletedNavigation: {},
+	ClickedRollback: { generation: Schema.Number },
+	SucceededRollback: { generation: Schema.Number },
+	FailedRollback: { reason: Schema.String },
 });
 
 export type Message = typeof Message.Type;

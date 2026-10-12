@@ -66,7 +66,7 @@ const HEAD_TAGS = [
 
 const MODULE_SCRIPT = /<script[^>]*type=["']module["'][^>]*src=["'][^"']*["'][^>]*>\s*<\/script>/gi;
 
-const STYLE_LINK = /<link[^>]*rel=["']stylesheet["'][^>]*>/gi;
+const STYLE_LINK = /<link[^>]*href=["']\/src\/[^"']*["'][^>]*>/gi;
 
 export const pageFor = (html: string, generation: number): string => {
 	const stripped = html.replace(MODULE_SCRIPT, "").replace(STYLE_LINK, "");

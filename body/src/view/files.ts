@@ -1,6 +1,6 @@
 import { Array as Arr, Option, Predicate } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
-import type { ToolBlock } from "../../../shared/protocol";
+import type { ToolBlock } from "../kernel/protocol";
 import { Message } from "../message";
 import { type Model, OpenFile } from "../model";
 import { kilobytes } from "./transcript";
@@ -64,13 +64,40 @@ const fileRow = (h: H, model: Model, path: string): ReadonlyArray<Html> => {
 	];
 };
 
-const commitRow = (h: H, commit: Model["commits"][number]): Html =>
+type GenerationRow = Model["body"]["generations"][number];
+
+const STATUS_TONE: Readonly<Record<GenerationRow["status"], string>> = {
+	building: "text-life",
+	rejected: "text-bad",
+	ready: "text-dim",
+	live: "text-ok",
+	retired: "text-faint",
+};
+
+const failedChecks = (generation: GenerationRow): string =>
+	generation.checks
+		.filter((check) => !check.ok)
+		.map((check) => `${check.name}: ${check.detail}`)
+		.join("\n");
+
+const generationRow = (h: H, generation: GenerationRow): Html =>
 	h.div(
-		[h.Class("grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-3 px-4 py-1.5 text-[13px]")],
+		[h.Class("px-4 py-1.5 text-[13px]"), h.DataAttribute("generation", String(generation.id)), h.DataAttribute("status", generation.status)],
 		[
-			h.code([h.Class("font-mono text-[12px] text-faint")], [commit.oid.slice(0, 7)]),
-			h.span([h.Class("truncate")], [commit.message]),
-			h.span([h.Class("font-mono text-[12px] text-faint")], [new Date(commit.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })]),
+			h.div(
+				[h.Class("grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-3")],
+				[
+					h.code([h.Class("font-mono text-[12px] text-faint")], [`#${generation.id}`]),
+					h.span([h.Class("truncate")], [generation.message]),
+					generation.status === "retired"
+						? h.button(
+								[h.Type("button"), h.Class("rounded border border-line-strong px-1.5 text-[12px] hover:bg-raised"), h.OnClick(Message.ClickedRollback({ generation: generation.id }))],
+								["Roll back"],
+							)
+						: h.span([h.Class(`font-mono text-[12px] ${STATUS_TONE[generation.status]}`)], [generation.status]),
+				],
+			),
+			...(generation.status === "rejected" ? [h.pre([h.Class("mt-1 max-h-32 overflow-auto font-mono text-[11px] whitespace-pre-wrap text-bad")], [generation.note === "" ? failedChecks(generation) : generation.note])] : []),
 		],
 	);
 
@@ -78,22 +105,23 @@ const none = (h: H, text: string): Html => h.div([h.Class("px-4 py-1.5 text-[13p
 
 export const filesPanel = (h: H, model: Model): Html => {
 	const writing = writingNow(model);
-	const commitCount = model.commits.length;
+	const generationCount = model.body.generations.length;
 
 	return h.aside(
 		[
 			h.Class(
-				`${model.filesPanelOpen ? "fixed inset-0 top-14 z-10 block" : "hidden"} overflow-y-auto border-l border-line bg-panel md:static md:block`,
+				`${model.body.filesPanelOpen ? "fixed inset-0 top-14 z-10 block" : "hidden"} overflow-y-auto border-l border-line bg-panel md:static md:block`,
 			),
-			h.AriaLabel("Files and history"),
+			h.AriaLabel("Source and generations"),
 		],
 		[
-			heading(h, "Files", ""),
-			...Option.match(model.filesError, { onNone: () => [], onSome: (reason) => [h.p([h.Id("files-error"), h.Class("px-4 py-2 text-[13px] text-bad")], [reason])] }),
+			heading(h, "Source", String(model.body.files.length)),
+			...Option.match(model.body.filesError, { onNone: () => [], onSome: (reason) => [h.p([h.Id("files-error"), h.Class("px-4 py-2 text-[13px] text-bad")], [reason])] }),
 			...Option.match(writing, { onNone: () => [], onSome: (block) => [liveFile(h, block)] }),
-			...(Arr.isReadonlyArrayEmpty(model.files) ? (Option.isNone(writing) ? [none(h, "No files yet.")] : []) : model.files.flatMap((path) => fileRow(h, model, path))),
-			heading(h, "Commits", commitCount === 0 ? "" : String(commitCount)),
-			...(commitCount === 0 ? [none(h, "Nothing committed yet.")] : model.commits.map((commit) => commitRow(h, commit))),
+			...(Arr.isReadonlyArrayEmpty(model.body.files) ? (Option.isNone(writing) ? [none(h, "No files yet.")] : []) : model.body.files.flatMap((path) => fileRow(h, model, path))),
+			heading(h, "Generations", Option.match(model.body.live, { onNone: () => "none live", onSome: (live) => `#${live} is live${model.body.dirty ? ", draft has changes" : ""}` })),
+			...Option.match(model.rollbackError, { onNone: () => [], onSome: (reason) => [h.p([h.Class("px-4 py-2 text-[13px] text-bad")], [reason])] }),
+			...(generationCount === 0 ? [none(h, "No generations yet.")] : model.body.generations.map((generation) => generationRow(h, generation))),
 		],
 	);
 };

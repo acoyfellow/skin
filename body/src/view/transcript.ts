@@ -1,6 +1,6 @@
 import { Array as Arr, Match, Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
-import type { Block, TimelineEvent, ToolBlock } from "../../../shared/protocol";
+import type { Block, TimelineEvent, ToolBlock } from "../kernel/protocol";
 import { Message } from "../message";
 import { EXAMPLES, type LocalNote, type Model } from "../model";
 

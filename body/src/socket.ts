@@ -1,6 +1,6 @@
 import { type Cause, Duration, Effect, Option, Queue, Schema, Stream } from "effect";
 import { ManagedResource, Subscription } from "foldkit";
-import { ConversationName, type ServerFrame, ServerFrameJson, socketPath } from "../../shared/protocol";
+import { ConversationName, type ServerFrame, ServerFrameJson, socketPath } from "./kernel/protocol";
 import { Message } from "./message";
 import { type Model, Phase } from "./model";
 import type { AgentClient } from "./rpc";

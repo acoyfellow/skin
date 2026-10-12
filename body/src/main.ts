@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from "effect";
 import type { Runtime } from "foldkit";
-import { ConversationName } from "../../shared/protocol";
+import { ConversationName } from "./kernel/protocol";
 import { ShowConversation } from "./command";
 import type { Message } from "./message";
 import type { AgentClient } from "./rpc";
@@ -36,8 +36,9 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	busy: false,
 	blocks: [],
 	live: Option.none(),
-	files: [],
-	commits: [],
+	body: { files: [], generations: [], live: Option.none(), dirty: false },
+	bodyVersion: 0,
+	rollbackError: Option.none(),
 	filesError: Option.none(),
 	events: [],
 	localNotes: [],

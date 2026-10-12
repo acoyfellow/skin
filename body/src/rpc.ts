@@ -1,7 +1,7 @@
 import { Context, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { RpcClient, type RpcClientError, RpcSerialization } from "effect/rpc";
-import { AgentRpcs, RPC_PATH } from "../../shared/protocol";
+import { AgentRpcs, RPC_PATH } from "./kernel/protocol";
 
 type AgentRpcClient = RpcClient.FromGroup<typeof AgentRpcs, RpcClientError.RpcClientError>;
 

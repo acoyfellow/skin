@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
-import { Block, Commit, ConversationName, Live, TimelineEvent } from "../../shared/protocol";
+import { Block, BodyState, ConversationName, Live, TimelineEvent } from "./kernel/protocol";
 
 export const Phase = defineTaggedUnion({
 	Connecting: {},
@@ -34,8 +34,9 @@ export const Model = Schema.Struct({
 	busy: Schema.Boolean,
 	blocks: Schema.Array(Block),
 	live: Schema.Option(Live),
-	files: Schema.Array(Schema.String),
-	commits: Schema.Array(Commit),
+	body: BodyState,
+	bodyVersion: Schema.Number,
+	rollbackError: Schema.Option(Schema.String),
 	filesError: Schema.Option(Schema.String),
 	events: Schema.Array(TimelineEvent),
 	localNotes: Schema.Array(LocalNote),

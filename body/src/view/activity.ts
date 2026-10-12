@@ -1,5 +1,5 @@
 import { Match, Option } from "effect";
-import type { Live } from "../../../shared/protocol";
+import type { Live } from "../kernel/protocol";
 import { type Model, Phase } from "../model";
 
 type ActivityRow = { readonly visible: boolean; readonly dead: boolean; readonly label: string };

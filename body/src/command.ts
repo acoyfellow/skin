@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import { Command, Navigation } from "foldkit";
-import { ConversationName } from "../../shared/protocol";
+import { ConversationName } from "./kernel/protocol";
 import { Message } from "./message";
 import { AgentClient } from "./rpc";
 
@@ -31,6 +31,18 @@ export const Kill = Command.define("Kill", {
 
 			yield* client.Kill({ name });
 		}).pipe(Effect.ignoreCause, Effect.as(Message.CompletedKill())),
+});
+
+export const Rollback = Command.define("Rollback", {
+	args: { generation: Schema.Number },
+	messages: [Message.SucceededRollback, Message.FailedRollback],
+	execute: ({ generation }) =>
+		Effect.gen(function* () {
+			const client = yield* AgentClient;
+			const live = yield* client.Rollback({ generation });
+
+			return Message.SucceededRollback({ generation: live });
+		}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedRollback({ reason: "message" in error ? String(error.message) : error._tag })))),
 });
 
 export const LoadFile = Command.define("LoadFile", {

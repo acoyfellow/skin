@@ -1,8 +1,8 @@
-import { Array as Arr, Match, Option } from "effect";
+import { Match, Option } from "effect";
 import type { Command, Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
-import { type ServerFrame, type Snapshot, UserBlock } from "../../shared/protocol";
-import { Kill, LoadFile, Send, ShowConversation, StartNewConversation } from "./command";
+import { type ServerFrame, type Snapshot, UserBlock } from "./kernel/protocol";
+import { Kill, LoadFile, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
 import { Message } from "./message";
 import { type Model, OpenFile, Phase } from "./model";
 import type { AgentClient } from "./rpc";
@@ -17,7 +17,7 @@ const isDown = (phase: Phase): boolean => Phase.isAnyOf(["Dead", "Reviving"])(ph
 const withNote = (model: Model, reason: string): Model =>
 	modifyFields(model, { localNotes: (notes) => [...notes, { at: model.now, afterBlock: model.blocks.length, reason }] });
 
-const latestCommit = (model: Model): string => Option.getOrElse(Option.map(Arr.head(model.commits), (commit) => commit.oid), () => "");
+const latestCommit = (model: Model): string => String(model.bodyVersion);
 
 const refreshOpenFile = (model: Model): { readonly model: Model; readonly commands: ReadonlyArray<AnyCommand> } =>
 	OpenFile.match(model.openFile, {
@@ -53,8 +53,8 @@ const applySnapshot = (model: Model, snapshot: Snapshot): Model =>
 		busy: () => snapshot.busy,
 		blocks: () => snapshot.blocks,
 		live: () => snapshot.live,
-		files: () => snapshot.files,
-		commits: () => snapshot.commits,
+		body: () => snapshot.body,
+		bodyVersion: (version) => version + 1,
 		filesError: () => snapshot.filesError,
 		events: () => snapshot.events,
 		localNotes: () => [],
@@ -70,7 +70,7 @@ const onFrame = (model: Model, frame: ServerFrame): UpdateReturn => {
 			Snapshot: ({ snapshot }) => applySnapshot(model, snapshot),
 			Live: ({ live }) => modifyFields(model, { live: () => live }),
 			Blocks: ({ blocks }) => modifyFields(model, { blocks: () => blocks }),
-			Files: ({ files, commits }) => modifyFields(model, { files: () => files, commits: () => commits }),
+			Body: ({ body }) => modifyFields(model, { body: () => body, bodyVersion: (version) => version + 1 }),
 			Busy: ({ busy }) => settlePhase(busy ? model : modifyFields(model, { live: () => Option.none() }), busy),
 			Killed: ({ killedAt }) => markKilled(model, killedAt),
 			Revived: ({ lives }) => modifyFields(model, { lives: () => lives }),
@@ -139,6 +139,9 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		ToggledThought: ({ key }) => ({ model: modifyFields(model, { openThoughts: (open) => toggled(open, key) }) }),
 		Ticked: ({ now }) => ({ model: modifyFields(model, { now: () => now }) }),
 		CompletedNavigation: () => ({ model }),
+		ClickedRollback: ({ generation }) => ({ model: modifyFields(model, { rollbackError: () => Option.none() }), commands: [Rollback({ generation })] }),
+		SucceededRollback: () => ({ model }),
+		FailedRollback: ({ reason }) => ({ model: modifyFields(model, { rollbackError: () => Option.some(reason) }) }),
 	});
 
 const openFile = (model: Model, path: string): UpdateReturn => {
