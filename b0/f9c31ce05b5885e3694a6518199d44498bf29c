@@ -1,0 +1,19 @@
+receipts/e2e-deployed.json
+  s_1edf569f022c1c::t_b92c6fe722f9d8 4-6,8,24,36,42,44,48,62,71,77-78,80-81,86,92,97-112,120,123,131,142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b0f9c31ce05b5885e3694a6518199d44498bf29c",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
