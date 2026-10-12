@@ -2,7 +2,7 @@ import { Match, Option } from "effect";
 import type { Command, Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 import { type ServerFrame, type Snapshot, UserBlock } from "./kernel/protocol";
-import { Kill, LoadFile, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
+import { LoadFile, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
 import { Message } from "./message";
 import { type Model, OpenFile, Phase } from "./model";
 import type { AgentClient } from "./rpc";
@@ -120,8 +120,6 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		ClickedExample: ({ text }) => send(model, text),
 		SucceededSend: () => ({ model }),
 		FailedSend: ({ reason }) => ({ model: settlePhase(withNote(model, reason), false) }),
-		ClickedKill: () => (isDown(model.phase) || !model.busy ? { model } : { model: markKilled(model, model.now), commands: [Kill({ name: model.name })] }),
-		CompletedKill: () => ({ model }),
 		ClickedNew: () => ({ model, commands: [StartNewConversation()] }),
 		ToggledFilesPanel: () => ({ model: modifyFields(model, { filesPanelOpen: (open) => !open }) }),
 		ClickedFile: ({ path }) =>

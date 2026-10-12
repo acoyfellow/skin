@@ -15,7 +15,7 @@ import {
 	SnapshotFrame,
 	UserBlock,
 } from "./kernel/protocol";
-import { Kill, Send, ShowConversation } from "./command";
+import { Send, ShowConversation } from "./command";
 import { initialModel } from "./main";
 import { Message } from "./message";
 import { reconnectDelay } from "./socket";
@@ -138,29 +138,12 @@ describe("sending", () => {
 	});
 });
 
-describe("kill and revival", () => {
+describe("restarts", () => {
 	const working = update(fresh, frame(SnapshotFrame.make({ snapshot: snapshot({ busy: true }) }))).model;
-
-	test("Kill it is ignored while nothing is running", () => {
-		story(update, given(fresh), message(Message.ClickedKill()), Command.expectNone());
-	});
 
 	const killed = KilledEvent.make({ at: 5_000, afterBlock: 0, wasBusy: true });
 
 	const back = BackEvent.make({ at: 7_900, afterBlock: 0, afterMs: 2_900, lives: 2, resumed: true });
-
-	test("Kill it marks the agent dead at once and asks the server to kill it", () => {
-		story(
-			update,
-			given({ ...working, now: 5_000 }),
-			message(Message.ClickedKill()),
-			model((current) => {
-				expect(current.phase).toEqual(Phase.Dead({ killedAt: 5_000 }));
-			}),
-			Command.expectHas(Kill),
-			Command.resolve(Kill, Message.CompletedKill()),
-		);
-	});
 
 	test("the kill shown on the page is the one the server recorded, shown once", () => {
 		story(
@@ -218,12 +201,11 @@ describe("kill and revival", () => {
 		);
 	});
 
-	test("after a kill, the socket drops and reconnects, and the server's events replace the local guess", () => {
+	test("after an interruption, the socket drops and reconnects, and the server's events replace the local guess", () => {
 		story(
 			update,
 			given({ ...working, now: 5_000 }),
-			message(Message.ClickedKill()),
-			Command.resolve(Kill, Message.CompletedKill()),
+			message(frame(KilledFrame.make({ killedAt: 5_000 }))),
 			message(Message.SocketClosed()),
 			model((current) => {
 				expect(current.phase).toEqual(Phase.Reviving({ killedAt: 5_000 }));

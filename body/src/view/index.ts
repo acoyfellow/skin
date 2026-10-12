@@ -25,8 +25,6 @@ const BUTTON = "h-8 rounded-md px-3 text-[13px] font-medium transition-colors di
 
 const SECONDARY = `${BUTTON} border border-line-strong bg-bg text-ink hover:bg-raised`;
 
-const DANGER = `${BUTTON} border border-bad-line bg-bg text-bad hover:bg-bad-soft`;
-
 const button = (h: H, label: string | Html, message: Message, style: string, disabled = false): Html =>
 	h.button([h.Type("button"), h.Disabled(disabled), h.Class(style), h.OnClick(message)], [label]);
 
@@ -49,17 +47,12 @@ const header = (h: H, model: Model): Html => {
 						[h.Id("status"), h.Class(`flex items-center gap-2 text-[13px] ${status.tone}`), h.AriaLive("polite")],
 						[h.i([h.Class(`size-2 rounded-full ${status.mark}`), h.AriaHidden(true)], []), status.label],
 					),
-					h.span(
-						[h.Class(`flex items-baseline gap-1.5 text-[13px] ${model.lives > 1 ? "text-life" : "text-dim"}`), h.Title("How many times this agent has started. Each kill adds one.")],
-						["Lives", h.b([h.Id("lives"), h.Class("font-mono text-[14px] font-medium")], [String(model.lives)])],
-					),
 					divider(h),
 					h.div(
 						[h.Class("flex items-center gap-2")],
 						[
 							h.span([h.Class("md:hidden")], [button(h, "Files", Message.ToggledFilesPanel(), SECONDARY)]),
 							button(h, "New", Message.ClickedNew(), SECONDARY),
-							button(h, "Kill it", Message.ClickedKill(), DANGER, isDown(model) || !model.busy),
 						],
 					),
 				],

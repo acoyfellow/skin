@@ -22,17 +22,6 @@ export const Send = Command.define("Send", {
 		),
 });
 
-export const Kill = Command.define("Kill", {
-	args: { name: ConversationName },
-	messages: [Message.CompletedKill],
-	execute: ({ name }) =>
-		Effect.gen(function* () {
-			const client = yield* AgentClient;
-
-			yield* client.Kill({ name });
-		}).pipe(Effect.ignoreCause, Effect.as(Message.CompletedKill())),
-});
-
 export const Rollback = Command.define("Rollback", {
 	args: { generation: Schema.Number },
 	messages: [Message.SucceededRollback, Message.FailedRollback],

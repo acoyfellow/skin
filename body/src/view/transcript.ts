@@ -160,7 +160,7 @@ const emptyState = (h: H): Html =>
 					),
 					h.p(
 						[h.Class("text-[12px] text-faint")],
-						["The agent survives being killed mid-task: press Kill it while it works and it comes back and finishes."],
+						["If the agent is interrupted mid-task, by a deploy or anything else, it comes back and finishes."],
 					),
 				],
 			),

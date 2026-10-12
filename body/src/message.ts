@@ -11,8 +11,6 @@ export const Message = defineMessageUnion({
 	ClickedExample: { text: Schema.String },
 	SucceededSend: {},
 	FailedSend: { reason: Schema.String },
-	ClickedKill: {},
-	CompletedKill: {},
 	ClickedNew: {},
 	ToggledFilesPanel: {},
 	ClickedFile: { path: Schema.String },
