@@ -5,3 +5,4 @@ dist
 kernel/seed.gen.json
 wrangler.deploy.jsonc
 .env.deploy
+deploy.local
