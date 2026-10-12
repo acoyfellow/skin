@@ -1,42 +1,86 @@
-import { Clock, Effect, Layer, Option, Schema } from "effect";
-import type { Commit } from "../../shared/protocol";
-import { cleanPath, Repo, type RepoFiles } from "../../worker/files";
+import { Effect, Layer, Option, Schema } from "effect";
+import type { BodyState, Generation } from "../../shared/protocol";
+import { cleanPath } from "../../kernel/paths";
+import { Repo, type RepoFiles } from "../../kernel/files";
 
-const FilesJson = Schema.fromJsonString(Schema.Struct({ files: Schema.Record(Schema.String, Schema.String), commits: Schema.Array(Schema.Struct({ oid: Schema.String, message: Schema.String, time: Schema.Number })) }));
+const Stored = Schema.Struct({ files: Schema.Record(Schema.String, Schema.String), shipped: Schema.Array(Schema.Struct({ id: Schema.Number, tree: Schema.String, message: Schema.String })) });
 
-const decodeStoredFiles = Schema.decodeUnknownOption(FilesJson);
+const StoredJson = Schema.fromJsonString(Stored);
 
-const encodeStoredFiles = Schema.encodeSync(FilesJson);
+const decodeStored = Schema.decodeUnknownOption(StoredJson);
 
-const STORED_FILES_KEY = "stored-repo";
+const encodeStored = Schema.encodeSync(StoredJson);
 
-const inStorage = (kv: SyncKvStorage) =>
-	Effect.sync(() => {
-		type Stored = { readonly files: Readonly<Record<string, string>>; readonly commits: ReadonlyArray<Commit> };
+const KEY = "stored-body";
 
-		const load = (): Stored => Option.getOrElse(decodeStoredFiles(kv.get(STORED_FILES_KEY)), (): Stored => ({ files: {}, commits: [] }));
+type StoredBody = typeof Stored.Type;
 
-		const list = Effect.sync(() => Object.keys(load().files).sort());
+const generationOf = (entry: StoredBody["shipped"][number], live: boolean): Generation => ({
+	id: entry.id,
+	parent: Option.none(),
+	message: entry.message,
+	status: live ? "live" : "retired",
+	createdAt: 0,
+	files: Object.keys(JSON.parse(entry.tree)).length,
+	checks: [],
+	boots: 0,
+	crashes: 0,
+	note: "",
+});
 
-		const read = (path: string) => cleanPath(path).pipe(Effect.map((file) => Option.fromNullishOr(load().files[file])));
+const inStorage = (kv: SyncKvStorage): RepoFiles => {
+	const load = (): StoredBody => Option.getOrElse(decodeStored(kv.get(KEY)), (): StoredBody => ({ files: {}, shipped: [] }));
 
-		const log = Effect.sync(() => load().commits);
+	const save = (stored: StoredBody) => kv.put(KEY, encodeStored(stored));
 
-		const write = (path: string, content: string, message: string) =>
-			Effect.gen(function* () {
-				const file = yield* cleanPath(path);
-				const stored = load();
+	const tree = (files: StoredBody["files"]) => JSON.stringify(Object.fromEntries(Object.entries(files).sort()));
 
-				if (stored.files[file] === content) return { oid: stored.commits[0]?.oid ?? "", changed: false };
+	const state = Effect.sync((): BodyState => {
+		const stored = load();
+		const last = stored.shipped.at(-1);
 
-				const commit: Commit = { oid: crypto.randomUUID().replaceAll("-", ""), message, time: yield* Clock.currentTimeMillis };
-
-				kv.put(STORED_FILES_KEY, encodeStoredFiles({ files: { ...stored.files, [file]: content }, commits: [commit, ...stored.commits] }));
-
-				return { oid: commit.oid, changed: true };
-			});
-
-		return { list, read, log, write } satisfies RepoFiles;
+		return {
+			files: Object.keys(stored.files).sort(),
+			generations: [...stored.shipped].reverse().map((entry) => generationOf(entry, entry.id === last?.id)),
+			live: Option.fromNullishOr(last?.id),
+			dirty: last?.tree !== tree(stored.files),
+		};
 	});
 
-export const storedRepo = (storage: DurableObjectStorage) => Layer.effect(Repo, inStorage(storage.kv));
+	return {
+		list: Effect.sync(() => Object.keys(load().files).sort()),
+		read: (path) => cleanPath(path).pipe(Effect.map((file) => Option.fromNullishOr(load().files[file])), Effect.orElseSucceed(() => Option.none())),
+		write: (path, content) =>
+			cleanPath(path).pipe(
+				Effect.map((file) => {
+					const stored = load();
+
+					if (stored.files[file] === content) return `Unchanged: ${file}`;
+
+					save({ ...stored, files: { ...stored.files, [file]: content } });
+
+					return `Wrote ${file}`;
+				}),
+				Effect.orElseSucceed(() => `Refused ${path}`),
+			),
+		remove: (path) => Effect.sync(() => `Deleted ${path}`),
+		ship: (message) =>
+			Effect.sync(() => {
+				const stored = load();
+				const current = tree(stored.files);
+				const last = stored.shipped.at(-1);
+
+				if (last?.tree === current) return { generation: last.id, status: "unchanged" as const, checks: [], reason: "This is already the live generation." };
+
+				const id = (last?.id ?? 0) + 1;
+
+				save({ ...stored, shipped: [...stored.shipped, { id, tree: current, message }] });
+
+				return { generation: id, status: "live" as const, checks: [], reason: `Generation ${id} passed every check and is live.` };
+			}),
+		rollback: (generation) => Effect.succeed(`Generation ${generation} is live again.`),
+		state,
+	};
+};
+
+export const storedRepo = (storage: DurableObjectStorage) => Layer.succeed(Repo, inStorage(storage.kv));

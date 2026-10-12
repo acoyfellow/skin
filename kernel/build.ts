@@ -1,5 +1,5 @@
-import { createApp, InMemoryFileSystem } from "@cloudflare/worker-bundler";
-import { Effect, Schema } from "effect";
+import { createApp, type CreateAppResult, InMemoryFileSystem } from "@cloudflare/worker-bundler";
+import { Effect, Predicate, Schema } from "effect";
 import { compile } from "tailwindcss";
 import tailwindIndex from "tailwindcss/index.css";
 import { KERNEL_PREFIX } from "../shared/protocol";
@@ -86,13 +86,13 @@ const required = (files: ReadonlyMap<string, string>, path: string): Effect.Effe
 const PUBLIC_DIR = "public/";
 
 const publicAssets = (files: ReadonlyMap<string, string>): Record<string, string> =>
-	Object.fromEntries([...files].filter(([path]) => path.startsWith(PUBLIC_DIR)).map(([path, content]) => [`/${path.slice(PUBLIC_DIR.length)}`, content]));
+	Object.fromEntries([...files].flatMap(([path, content]) => (path.startsWith(PUBLIC_DIR) ? [[`/${path.slice(PUBLIC_DIR.length)}`, content] as const] : [])));
 
 const firstLines = (text: string, lines: number) => text.split("\n").slice(0, lines).join("\n");
 
-const stringModules = (modules: Readonly<Record<string, unknown>>): Effect.Effect<Record<string, string>, BuildFailed> => {
+const stringModules = (modules: CreateAppResult["modules"]): Effect.Effect<Record<string, string>, BuildFailed> => {
 	const entries = Object.entries(modules);
-	const textual = entries.filter((entry): entry is [string, string] => typeof entry[1] === "string");
+	const textual = entries.flatMap(([path, module]) => (Predicate.isString(module) ? [[path, module] as const] : []));
 
 	return textual.length === entries.length
 		? Effect.succeed(Object.fromEntries(textual))
@@ -134,9 +134,9 @@ export const build = (files: ReadonlyMap<string, string>, generation: number): E
 
 		const client = app.assets[CLIENT_OUTPUT];
 
-		if (typeof client !== "string") return yield* Effect.fail(new BuildFailed({ stage: "bundle", detail: `${CLIENT_ENTRY} produced no ${CLIENT_OUTPUT}` }));
+		if (!Predicate.isString(client)) return yield* Effect.fail(new BuildFailed({ stage: "bundle", detail: `${CLIENT_ENTRY} produced no ${CLIENT_OUTPUT}` }));
 
-		const sources = [...files].filter(([path]) => SOURCE_FILE.test(path) && !path.startsWith(NODE_MODULES)).map(([, content]) => content);
+		const sources = [...files].flatMap(([path, content]) => (SOURCE_FILE.test(path) && !path.startsWith(NODE_MODULES) ? [content] : []));
 		const styles = yield* stylesheet(css, sources);
 		const modules = yield* stringModules(app.modules);
 

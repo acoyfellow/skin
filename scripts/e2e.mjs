@@ -2,16 +2,22 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
 
 const BASE = (process.env.BASE ?? "http://localhost:8790").replace(/\/$/, "");
+
 const TARGET = process.env.TARGET ?? (BASE.includes("localhost") ? "local" : "deployed");
+
 const ACCESS = process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET ? { "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID, "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET } : {};
+
 const ORIGIN = new URL(BASE).origin;
+
 const NONCE = Math.random().toString(36).slice(2, 8);
 
 const results = [];
+
 const started = Date.now();
 
 const http = async (method, path, body) => {
-	const response = await fetch(BASE + path, { method, body, headers: { ...ACCESS, Origin: ORIGIN, Accept: "text/html,application/json" }, redirect: "manual" });
+	const init = { method, headers: { ...ACCESS, Origin: ORIGIN, Accept: "text/html,application/json" }, redirect: "manual" };
+	const response = await fetch(BASE + path, body === undefined ? init : { ...init, body });
 	const text = await response.text();
 
 	return { status: response.status, text, generation: Number(response.headers.get("x-generation") ?? NaN) };
@@ -103,7 +109,9 @@ const expectRejected = (report, stage) => {
 const servedGeneration = async () => (await http("GET", "/")).generation;
 
 let seed;
+
 let original = {};
+
 let good;
 
 await scenario("the seed grows into a live generation that starts in a real browser", "a live generation; the guard reports ok", async () => {
@@ -210,6 +218,7 @@ await scenario("a page that crashes in the browser is rolled back by the kernel 
 
 		return current.live !== crashed ? current : undefined;
 	}, 20_000);
+
 	const row = after.generations.find((generation) => generation.id === crashed);
 
 	await write("src/entry.ts", original["src/entry.ts"]);
@@ -241,9 +250,13 @@ await scenario("rolling back makes the seed live again and resets the draft to m
 await browser.close();
 
 const passed = results.filter((result) => result.pass).length;
+
 const receipt = { target: TARGET, base: TARGET === "local" ? BASE : "(deployed, behind Access)", at: new Date().toISOString(), nonce: NONCE, passed, total: results.length, ms: Date.now() - started, results };
 
 mkdirSync("receipts", { recursive: true });
+
 writeFileSync(`receipts/e2e-${TARGET}.json`, `${JSON.stringify(receipt, null, 2)}\n`);
+
 console.log(`\n${passed}/${results.length} scenarios passed in ${Math.round((Date.now() - started) / 1000)} s; receipt: receipts/e2e-${TARGET}.json`);
+
 process.exit(passed === results.length ? 0 : 1);

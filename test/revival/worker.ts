@@ -1,9 +1,9 @@
 import { fauxAssistantMessage, fauxProvider, fauxText, fauxToolCall } from "@earendil-works/pi-ai/providers/faux";
 import { Effect, Layer, Option, Schema } from "effect";
-import { Agent, conversationLayer } from "../../worker/agent";
-import { PushRejected, Repo } from "../../worker/files";
+import { Agent, conversationLayer } from "../../kernel/agent";
+import { BodyUnavailable, Repo } from "../../kernel/files";
 import { storedRepo } from "./stored-repo";
-import { Model } from "../../worker/harness";
+import { Model } from "../../kernel/harness";
 import { ConversationName, KILLED_FROM_THE_UI, SnapshotJson } from "../../shared/protocol";
 
 const KILLS = 3;
@@ -15,14 +15,19 @@ const PAGE = "<!doctype html><title>bakery</title><h1>Fresh bread</h1>";
 const wroteThePage = (context: { readonly messages: ReadonlyArray<{ readonly role: string; readonly toolName?: string }> }) =>
 	context.messages.some((message) => message.role === "toolResult" && message.toolName === "write_file");
 
+const shipped = (context: { readonly messages: ReadonlyArray<{ readonly role: string; readonly toolName?: string }> }) =>
+	context.messages.some((message) => message.role === "toolResult" && message.toolName === "ship");
+
 const scripted = () => {
 	const faux = fauxProvider({ tokensPerSecond: 20 });
 
 	faux.setResponses(
 		Array.from({ length: 50 }, () => (context: { readonly messages: ReadonlyArray<{ readonly role: string; readonly toolName?: string }> }) =>
 			!wroteThePage(context)
-				? fauxAssistantMessage([fauxText("Writing the page now. ".repeat(80)), fauxToolCall("write_file", { path: "index.html", content: PAGE, message: "Add the bakery page" })], { stopReason: "toolUse" })
-				: fauxAssistantMessage(fauxText("Done: index.html has the bakery page.")),
+				? fauxAssistantMessage([fauxText("Writing the page now. ".repeat(80)), fauxToolCall("write_file", { path: "index.html", content: PAGE })], { stopReason: "toolUse" })
+				: !shipped(context)
+					? fauxAssistantMessage([fauxText("Shipping it."), fauxToolCall("ship", { message: "Add the bakery page" })], { stopReason: "toolUse" })
+					: fauxAssistantMessage(fauxText("Done: generation 1 is live with the bakery page.")),
 		),
 	);
 
@@ -35,11 +40,16 @@ export class RevivalAgent extends Agent {
 	}
 }
 
+const down = () => Effect.fail(new BodyUnavailable({ reason: "the body is down in this test" }));
+
 const rejectingPushes = Layer.succeed(Repo, {
 	list: Effect.succeed([]),
 	read: () => Effect.succeed(Option.none()),
-	log: Effect.succeed([]),
-	write: () => Effect.fail(new PushRejected({ repo: "test", cause: new Error("push rejected by the test") })),
+	write: down,
+	remove: down,
+	ship: down,
+	rollback: down,
+	state: down(),
 });
 
 export class RejectingAgent extends Agent {
@@ -60,18 +70,20 @@ const rejecting = async (env: Env): Promise<Response> => {
 
 	await agent().send(name, "Build a bakery page");
 
-	for (let i = 0; i < 100; i += 1) {
+	for (let i = 0; i < 200; i += 1) {
 		await sleep(300);
 		const current = decodeSnapshot(await agent().getSnapshot(name));
 
 		if (!current.busy) {
 			const toolResults = current.blocks.flatMap((block) => (block._tag === "Tool" ? Option.toArray(block.result).map((result) => `${result.isError ? "error" : "ok"}: ${result.line}`) : []));
 
-			return Response.json({ lives: current.lives, files: current.files, commits: current.commits.length, timeline: current.events.map((event) => event._tag), kills: toolResults });
+			return Response.json({ lives: current.lives, files: current.body.files, commits: current.body.generations.length, timeline: current.events.map((event) => event._tag), kills: toolResults });
 		}
 	}
 
-	return Response.json({ timedOut: true }, { status: 500 });
+	const last = await agent().getSnapshot(name).then(decodeSnapshot, () => undefined);
+
+	return Response.json({ timedOut: true, busy: last?.busy, events: last?.events.map((event) => event._tag), blocks: last?.blocks.map((block) => (block._tag === "Tool" ? `Tool ${block.name} ${Option.getOrUndefined(block.result)?.line ?? "pending"}` : `${block._tag} ${"text" in block ? block.text.slice(0, 120) : ""}`)) }, { status: 500 });
 };
 
 export default {
@@ -93,14 +105,14 @@ export default {
 			kills.push(`${before?.busy ? "busy" : "idle"}:${await agent().kill(name).then(() => "returned", (error: Error) => (String(error).includes(KILLED_FROM_THE_UI) ? "aborted" : String(error)))}`);
 		}
 
-		for (let i = 0; i < 100; i += 1) {
+		for (let i = 0; i < 200; i += 1) {
 			await sleep(300);
 			const current = await snapshot().catch(() => undefined);
 
 			const finished = current?.blocks.some((block) => block._tag === "Reply" && block.text.startsWith("Done")) ?? false;
 
 			if (current !== undefined && !current.busy && finished) {
-				return Response.json({ lives: current.lives, files: current.files, commits: current.commits.length, timeline: current.events.map((event) => event._tag), kills });
+				return Response.json({ lives: current.lives, files: current.body.files, commits: current.body.generations.length, timeline: current.events.map((event) => event._tag), kills });
 			}
 		}
 

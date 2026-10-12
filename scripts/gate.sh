@@ -5,20 +5,23 @@ cd "$(dirname "$0")/.."
 
 step() { printf '\n== %s\n' "$1"; }
 
-step "typecheck"
-npm run --silent typecheck
+step "seed (embed body/ into the kernel)"
+node scripts/seed.mjs
+
+step "typecheck (kernel and body)"
+npx tsc -p . && npx tsc -p body
 
 step "lint"
 npm run --silent lint
 
-step "tests (UI stories, storage conformance, and the offline revival in workerd)"
-npm run --silent test
+step "tests (body stories, Access checks, and the agent killed three times offline in workerd)"
+npx vitest run
 
 step "README code excerpts match the source"
 node scripts/check-excerpts.mjs
 
-step "build"
-npm run --silent build >/dev/null
+step "the deploy bundle builds"
+npx wrangler deploy --dry-run --outdir .wrangler/dry >/dev/null
 
 step "wrangler configs keep public URLs off"
 for config in $(git ls-files '*wrangler.jsonc'); do
@@ -43,8 +46,8 @@ if git ls-files -z | xargs -0 grep -nE '(account_id|CLOUDFLARE_API_TOKEN).*[0-9a
 fi
 
 if [ -n "${BASE:-}" ]; then
-	step "kill it five times against $BASE"
-	node scripts/kill5.mjs
+	step "end to end against $BASE: eight good and broken changes, in a real browser"
+	node scripts/e2e.mjs
 fi
 
 printf '\nall checks passed\n'

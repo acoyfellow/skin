@@ -10,10 +10,12 @@ export default defineConfig({
 		".opencode/**",
 		".pi/**",
 		".wrangler/**",
-		"client/dist/**",
+		"body/dist/**",
+		"experiments/**",
+		"kernel/*.gen.ts",
 		"node_modules/**",
 		"tools/oxlint/anti-slop/**",
-		"worker/vendor/**",
+		
 	],
 	jsPlugins: [
 		{ name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },

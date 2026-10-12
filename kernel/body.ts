@@ -20,6 +20,7 @@ import {
 } from "../shared/protocol";
 import type { Built } from "./build";
 import { BuildOutcomeJson, type Builder } from "./builder";
+import { cleanPath, InvalidPath } from "./paths";
 import { KERNEL_FILES, SEED } from "./seed";
 
 export type BodyEnv = { readonly LOADER: WorkerLoader; readonly BUILDER: DurableObjectNamespace<Builder> };
@@ -35,18 +36,6 @@ const CHECK_TIMEOUT_MS = 10_000;
 const COMPATIBILITY_DATE = "2026-09-01";
 
 const READ_ONLY_PREFIX = "src/kernel/";
-
-export class InvalidPath extends Schema.TaggedError<InvalidPath>()("InvalidPath", { path: Schema.String, reason: Schema.String }) {}
-
-export const cleanPath = (path: string): Effect.Effect<string, InvalidPath> => {
-	const parts = path.replaceAll("\\", "/").split("/").filter((part) => part !== "" && part !== ".");
-
-	if (parts.length === 0 || parts.some((part) => part === ".." || part.startsWith(".git"))) return Effect.fail(new InvalidPath({ path, reason: "not a valid path" }));
-
-	if (parts[0] === "node_modules") return Effect.fail(new InvalidPath({ path, reason: "node_modules is installed from package.json, not written" }));
-
-	return Effect.succeed(parts.join("/"));
-};
 
 const writable = (path: string): Effect.Effect<string, InvalidPath> =>
 	Effect.flatMap(cleanPath(path), (clean) =>
@@ -142,17 +131,19 @@ const publicGeneration = (row: GenerationRow): Generation => ({
 
 const passedGate = (status: Generation["status"]) => status === "live" || status === "retired";
 
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-	html: "text/html; charset=utf-8",
-	js: "text/javascript; charset=utf-8",
-	css: "text/css; charset=utf-8",
-	json: "application/json",
-	svg: "image/svg+xml",
-	txt: "text/plain; charset=utf-8",
-	webmanifest: "application/manifest+json",
-};
+const HTML = "text/html; charset=utf-8";
 
-const contentType = (path: string) => CONTENT_TYPES[path.split(".").pop() ?? ""] ?? "application/octet-stream";
+const CONTENT_TYPES = new Map([
+	["html", HTML],
+	["js", "text/javascript; charset=utf-8"],
+	["css", "text/css; charset=utf-8"],
+	["json", "application/json"],
+	["svg", "image/svg+xml"],
+	["txt", "text/plain; charset=utf-8"],
+	["webmanifest", "application/manifest+json"],
+]);
+
+const contentType = (path: string) => CONTENT_TYPES.get(path.split(".").pop() ?? "") ?? "application/octet-stream";
 
 const pinnedGeneration = (request: Request): Option.Option<number> => {
 	const cookie = request.headers.get("Cookie") ?? "";
@@ -163,7 +154,7 @@ const pinnedGeneration = (request: Request): Option.Option<number> => {
 
 const GROWING_PAGE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Growing</title><meta http-equiv="refresh" content="3"><body style="font:15px system-ui;display:grid;place-items:center;height:100vh;margin:0;color:#4d4d4d"><p>The first generation is growing. This page reloads on its own.</p>`;
 
-const failureDetail = (failure: unknown): string =>
+const failureDetail = <E>(failure: E): string =>
 	Predicate.hasProperty(failure, "detail") ? String(failure.detail) : Predicate.isTagged(failure, "TimeoutError") ? `timed out after ${CHECK_TIMEOUT_MS} ms` : String(failure);
 
 const timed = <A, E>(name: string, effect: Effect.Effect<A, E>, describe: (value: A) => { readonly ok: boolean; readonly detail: string }) =>
@@ -367,6 +358,7 @@ export class Body extends DurableObject<BodyEnv> {
 	private async shipTree(tree: Record<string, string>, treeJson: string, treeHash: string, message: string): Promise<ShipReport> {
 		const parent = this.liveId();
 		const created = Date.now();
+
 		const row = this.sql(
 			"INSERT INTO generations (parent, tree, tree_hash, message, status, created_at) VALUES (?, ?, ?, ?, 'building', ?) RETURNING id",
 			Option.getOrNull(parent),
@@ -375,6 +367,7 @@ export class Body extends DurableObject<BodyEnv> {
 			message.slice(0, 500),
 			created,
 		)[0];
+
 		const id = num(row ?? {}, "id");
 
 		this.notify();
@@ -409,10 +402,12 @@ export class Body extends DurableObject<BodyEnv> {
 
 			const worker = this.isolate(id, output);
 			const health = yield* timed("boot", this.probe(worker, BODY_HEALTH_PATH), (response) => ({ ok: response.status === 200, detail: `GET ${BODY_HEALTH_PATH} returned ${response.status}` }));
+
 			const checks = yield* timed("checks", this.bodyChecks(worker), (results) => ({
 				ok: results.length > 0 && results.every((check) => check.ok),
 				detail: results.length === 0 ? "the body reported no checks" : results.map((check) => `${check.ok ? "pass" : "FAIL"} ${check.name}${check.ok ? "" : `: ${check.detail}`}`).join("\n"),
 			}));
+
 			const page = output.assets["/index.html"] ?? "";
 			const shell: Check = { name: "page", ok: page.includes("guard.js") && page.includes("entry.js"), detail: "index.html carries the crash guard and the client bundle", ms: 0 };
 			const all = [bundled, health, checks, shell];
@@ -583,7 +578,7 @@ export class Body extends DurableObject<BodyEnv> {
 		const pinned = Option.filter(pinnedGeneration(request), (id) => Option.exists(this.generation(id), (row) => passedGate(row.status)));
 		const id = Option.orElse(pinned, () => this.liveId());
 
-		if (Option.isNone(id)) return new Response(GROWING_PAGE, { status: 503, headers: { "content-type": CONTENT_TYPES["html"] ?? "", "retry-after": "3" } });
+		if (Option.isNone(id)) return new Response(GROWING_PAGE, { status: 503, headers: { "content-type": HTML, "retry-after": "3" } });
 
 		const output = this.output(id.value);
 
@@ -606,7 +601,7 @@ export class Body extends DurableObject<BodyEnv> {
 
 		const wantsPage = request.method === "GET" && (request.headers.get("Accept") ?? "").includes("text/html") && !path.startsWith("/api/");
 
-		if (wantsPage) return Promise.resolve(new Response(output.assets["/index.html"] ?? "", { headers: { ...headers, "content-type": CONTENT_TYPES["html"] ?? "", "cache-control": "no-cache" } }));
+		if (wantsPage) return Promise.resolve(new Response(output.assets["/index.html"] ?? "", { headers: { ...headers, "content-type": HTML, "cache-control": "no-cache" } }));
 
 		return this.isolate(id, output)
 			.getEntrypoint()

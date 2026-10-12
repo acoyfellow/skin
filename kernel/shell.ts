@@ -196,22 +196,22 @@ const decodeBase64 = (value: string) => Uint8Array.from(atob(value), (char) => c
 
 const respond = (body: BodyInit, type: string, cache = "no-cache") => new Response(body, { headers: { "content-type": type, "cache-control": cache } });
 
-const STATIC: Readonly<Record<string, () => Response>> = {
-	"/sw.js": () => respond(SERVICE_WORKER, "text/javascript; charset=utf-8"),
-	"/manifest.webmanifest": () => respond(MANIFEST, "application/manifest+json"),
-	[`${KERNEL_PREFIX}/guard.js`]: () => respond(GUARD, "text/javascript; charset=utf-8"),
-	[`${KERNEL_PREFIX}/icon.svg`]: () => respond(ICON_SVG, "image/svg+xml", "public, max-age=86400"),
-	[`${KERNEL_PREFIX}/icon-192.png`]: () => respond(decodeBase64(ICON_192), "image/png", "public, max-age=86400"),
-	[`${KERNEL_PREFIX}/icon-512.png`]: () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400"),
-	[`${KERNEL_PREFIX}/`]: () => respond(CONSOLE, "text/html; charset=utf-8"),
-	[KERNEL_PREFIX]: () => respond(CONSOLE, "text/html; charset=utf-8"),
-	[`${KERNEL_PREFIX}/unpin`]: () => new Response(null, { status: 302, headers: { location: "/", "set-cookie": `${PIN_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax` } }),
-};
+const STATIC = new Map<string, () => Response>([
+	["/sw.js", () => respond(SERVICE_WORKER, "text/javascript; charset=utf-8")],
+	["/manifest.webmanifest", () => respond(MANIFEST, "application/manifest+json")],
+	[`${KERNEL_PREFIX}/guard.js`, () => respond(GUARD, "text/javascript; charset=utf-8")],
+	[`${KERNEL_PREFIX}/icon.svg`, () => respond(ICON_SVG, "image/svg+xml", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/icon-192.png`, () => respond(decodeBase64(ICON_192), "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/icon-512.png`, () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/`, () => respond(CONSOLE, "text/html; charset=utf-8")],
+	[KERNEL_PREFIX, () => respond(CONSOLE, "text/html; charset=utf-8")],
+	[`${KERNEL_PREFIX}/unpin`, () => new Response(null, { status: 302, headers: { location: "/", "set-cookie": `${PIN_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax` } })],
+]);
 
 const PIN_ROUTE = /^\/_kernel\/pin\/(\d+)$/;
 
 export const kernelAsset = (pathname: string): Option.Option<Response> => {
-	const fixed = STATIC[pathname];
+	const fixed = STATIC.get(pathname);
 
 	if (fixed !== undefined) return Option.some(fixed());
 

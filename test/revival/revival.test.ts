@@ -9,7 +9,7 @@ const Outcome = Schema.fromJsonString(
 
 const decodeOutcome = Schema.decodeUnknownSync(Outcome);
 
-test("a Durable Object killed three times with ctx.abort() mid-task comes back each time and finishes, offline in workerd", { timeout: 90_000 }, async () => {
+test("the agent killed three times with ctx.abort() mid-task comes back each time, ships exactly one generation, and finishes, offline in workerd", { timeout: 90_000 }, async () => {
 	const worker = await unstable_startWorker({
 		config: resolve("test/revival/wrangler.jsonc"),
 		dev: { server: { port: 0 }, inspector: false, logLevel: "error", persist: false },
@@ -23,13 +23,13 @@ test("a Durable Object killed three times with ctx.abort() mid-task comes back e
 		expect(outcome.lives).toBe(4);
 		expect(outcome.timeline).toEqual(["Killed", "Back", "Killed", "Back", "Killed", "Back"]);
 		expect(outcome.files).toEqual(["index.html"]);
-		expect(outcome.commits).toBeGreaterThanOrEqual(1);
+		expect(outcome.commits).toBe(1);
 	} finally {
 		await worker.dispose();
 	}
 });
 
-test("when every push is rejected, the run still ends and the model is told why, as a tool error", { timeout: 90_000 }, async () => {
+test("when the body is down, the run still ends and the model is told why, as a tool error", { timeout: 90_000 }, async () => {
 	const worker = await unstable_startWorker({
 		config: resolve("test/revival/wrangler.jsonc"),
 		dev: { server: { port: 0 }, inspector: false, logLevel: "error", persist: false },
@@ -41,7 +41,7 @@ test("when every push is rejected, the run still ends and the model is told why,
 		expect(outcome.files).toEqual([]);
 		expect(outcome.commits).toBe(0);
 		expect(outcome.lives).toBe(1);
-		expect(outcome.kills).toContain("error: The commit to test was made but the push was rejected twice. Try again later.");
+		expect(outcome.kills).toContain("error: The body is unavailable: the body is down in this test. Try again.");
 	} finally {
 		await worker.dispose();
 	}

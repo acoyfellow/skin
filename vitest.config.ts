@@ -5,8 +5,8 @@ const inlineFoldkit = { deps: { inline: ["foldkit"] } };
 export default defineConfig({
 	test: {
 		projects: [
-			{ test: { name: "client", environment: "happy-dom", include: ["client/src/**/*.test.ts"], setupFiles: ["./client/src/vitest-setup.ts"], server: inlineFoldkit } },
-			{ test: { name: "server", environment: "node", include: ["worker/**/*.test.ts", "shared/**/*.test.ts", "test/**/*.test.ts"], server: inlineFoldkit } },
+			{ test: { name: "client", environment: "happy-dom", include: ["body/src/**/*.test.ts"], setupFiles: ["./body/src/vitest-setup.ts"], server: inlineFoldkit } },
+			{ test: { name: "server", environment: "node", include: ["kernel/**/*.test.ts", "shared/**/*.test.ts", "test/**/*.test.ts"], server: inlineFoldkit } },
 		],
 	},
 });

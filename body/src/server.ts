@@ -19,7 +19,7 @@ class StoreFailed extends Schema.TaggedError<StoreFailed>()("StoreFailed", { rea
 
 const store = <A>(run: () => Promise<A>) => Effect.tryPromise({ try: run, catch: (cause) => new StoreFailed({ reason: String(cause) }) });
 
-const json = (value: unknown, status = 200) => Response.json(value, { status });
+const json = <A>(value: A, status = 200) => Response.json(value, { status });
 
 const notes = (env: Env) =>
 	store(() => env.STORE.list("note:")).pipe(
