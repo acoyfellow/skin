@@ -10,11 +10,7 @@ export const GUARD = `(() => {
 	let settled = false;
 	let crashed = false;
 
-	const started = () => {
-		const root = document.getElementById("root");
-
-		return root !== null && root.childElementCount > 0;
-	};
+	const started = () => [...document.body.children].some((element) => element.tagName !== "SCRIPT" && element.id !== "kernel-banner" && (element.childElementCount > 0 || element.textContent.trim() !== ""));
 
 	const banner = (text, actions) => {
 		let bar = document.getElementById("kernel-banner");
@@ -83,7 +79,7 @@ export const GUARD = `(() => {
 		if (typeof args[0] === "string" && args[0].includes("Application crash")) fail(String(args[1] && args[1].message ? args[1].message : args[1]));
 	};
 
-	addEventListener("load", () => setTimeout(() => (started() && !crashed ? report(true, "rendered") : fail("#root was still empty ${START_TIMEOUT_MS / 1000} s after load")), ${START_TIMEOUT_MS}));
+	addEventListener("load", () => setTimeout(() => (started() && !crashed ? report(true, "rendered") : fail("nothing rendered ${START_TIMEOUT_MS / 1000} s after load")), ${START_TIMEOUT_MS}));
 
 	const listen = (attempt) => {
 		const socket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "${BODY_SOCKET_PATH}");

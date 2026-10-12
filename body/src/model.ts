@@ -52,7 +52,7 @@ export const Model = Schema.Struct({
 export type Model = typeof Model.Type;
 
 export const EXAMPLES = [
-	"Build a small landing page for a bakery in index.html",
-	"Write a Python script that prints the first 50 primes, then a README explaining it",
-	"Create a todo app in one HTML file",
+	"Add a notes panel that saves to the server and survives every generation",
+	"Switch the whole app to a dark theme",
+	"Show a clock in the header that ticks every second",
 ] as const;

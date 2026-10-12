@@ -103,9 +103,9 @@ const timeline = (h: H, model: Model): ReadonlyArray<Placed> =>
 	].toSorted((a, b) => a.afterBlock - b.afterBlock || a.at - b.at);
 
 const steps: ReadonlyArray<readonly [string, string]> = [
-	["Ask for something that takes a few steps.", "Each step is saved in the Durable Object's SQLite as it happens."],
-	["Press Kill it while it works.", "The Durable Object aborts itself. Memory, sockets, and the model call in flight are lost."],
-	["Watch it come back.", "An alarm starts a new instance, which replays from the last checkpoint and finishes."],
+	["Ask for a change to this app.", "Anything: a new panel, a different layout, a feature on its server. This chat is part of the app too."],
+	["It rewrites its own code.", "The agent edits the source, then builds it into a new generation while you keep using this one."],
+	["It only goes live if it works.", "Every generation must build, boot, and pass its checks. A bad one is rejected; one that crashes in your browser is rolled back."],
 ];
 
 const emptyState = (h: H): Html =>
@@ -120,19 +120,17 @@ const emptyState = (h: H): Html =>
 						[
 							h.h2(
 								[h.Class("text-[34px] leading-[1.1] font-semibold tracking-[-0.03em]")],
-								["Kill it mid-task. ", h.span([h.Class("text-life")], ["It comes back."])],
+								["This app rewrites itself. ", h.span([h.Class("text-life")], ["It can't break itself."])],
 							),
 							h.p(
 								[h.Class("max-w-[52ch] text-[16px] text-dim")],
 								[
-									"Tardigrades survive boiling, freezing, and space. This one survives ",
-									h.code([h.Class("font-mono text-[14px] text-ink")], ["ctx.abort()"]),
-									". Every step is checkpointed in a Durable Object and every file is a git commit.",
+									"Ask it to change anything you see, including this page. Each change is a new generation that must pass the gate before it replaces this one, and every earlier generation stays one click away.",
 								],
 							),
 						],
 					),
-					h.img([h.Src("/img/hero.jpg"), h.Alt("A glowing tardigrade standing on a purple crystal"), h.Class("hidden aspect-square w-full rounded-xl object-cover object-center sm:block")]),
+					h.img([h.Src("/_kernel/icon.svg"), h.Alt(""), h.Class("hidden aspect-square w-full rounded-xl sm:block")]),
 				],
 			),
 			h.ol(
@@ -162,7 +160,7 @@ const emptyState = (h: H): Html =>
 					),
 					h.p(
 						[h.Class("text-[12px] text-faint")],
-						["A step cut off by a kill may run again, so a task can end with one extra commit."],
+						["The agent survives being killed mid-task: press Kill it while it works and it comes back and finishes."],
 					),
 				],
 			),
