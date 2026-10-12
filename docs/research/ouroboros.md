@@ -31,11 +31,15 @@ There are two unrelated projects with the name. Q00's README itself says so: "if
 
 **Scale of the machinery.** 3,289 files. The architecture book is 13 chapters, and invariants are written as numbered laws. It is very thorough and very complex.
 
+## Positioning (decided 2026-10-12)
+
+**Their harness evolves the repo. Ours evolves per person.** Ouroboros has one lineage: the tool rewrites itself, and every install runs that tool. Ours is a web app behind a login. Each signed-in person gets their own agent and their own copy of the app, which evolves around how that person works, and no change crosses between people.
+
 ## Where we are different
 
 | | razzant/ouroboros | Q00/ouroboros | Ours |
 | --- | --- | --- | --- |
-| What changes itself | The agent harness (code, prompts, tools) | Nothing (a spec converges) | The app you use, chat included |
+| What changes itself | The agent harness (code, prompts, tools), one lineage | Nothing (a spec converges) | Each person's own copy of the app, chat included: one lineage per account |
 | Where it runs | Your machine (desktop app, local repo) | Inside your coding agent | Cloudflare: a URL and a PWA, nothing to install |
 | What keeps it safe | Model review panels + protected paths + a stable branch | Spec gate + 3-stage evaluation of the output | Executable gate (bundle, boot in an isolate, checks, browser start) + the kernel cannot be edited + one-pointer rollback |
 | What a bad change can do | Land if reviewers approve; recovery means falling back to stable | N/A | Cannot go live unless it builds, boots, and passes checks; a startup crash in the browser is rolled back automatically |

@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { type BodyState, BodyStateJson, RollbackOutcomeJson, type ShipReport, ShipReportJson } from "../shared/protocol";
 import type { Body } from "./body";
-import { BODY_NAME } from "./store";
+import type { UserId } from "./identity";
 
 export class BodyUnavailable extends Schema.TaggedError<BodyUnavailable>()("BodyUnavailable", { reason: Schema.String }) {}
 
@@ -50,5 +50,5 @@ export const bodyFiles = (body: () => BodyStub): RepoFiles => ({
 });
 
 export class Repo extends Context.Service<Repo, RepoFiles>()("planarian/Repo") {
-	static readonly layer = (namespace: DurableObjectNamespace<Body>) => Layer.succeed(Repo, bodyFiles(() => namespace.getByName(BODY_NAME)));
+	static readonly layer = (namespace: DurableObjectNamespace<Body>, user: UserId) => Layer.succeed(Repo, bodyFiles(() => namespace.getByName(user)));
 }

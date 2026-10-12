@@ -28,6 +28,7 @@ const JwtClaims = Schema.Struct({
 	nbf: Schema.optional(Schema.Number),
 	email: Schema.optional(Schema.String),
 	sub: Schema.String,
+	common_name: Schema.optional(Schema.String),
 });
 
 const SigningKey = Schema.Struct({ kid: Schema.String, kty: Schema.Literal("RSA"), n: Schema.String, e: Schema.String });
@@ -134,7 +135,11 @@ export const verifyAccessToken = (config: AccessConfig, token: string) =>
 
 		if (claims.nbf !== undefined && claims.nbf - CLOCK_SKEW_SECONDS > nowSeconds) return yield* Effect.fail(deny("token not yet valid"));
 
-		return { email: Option.fromNullishOr(claims.email), subject: claims.sub } satisfies AccessIdentity;
+		const subject = claims.sub !== "" ? claims.sub : `service:${claims.common_name ?? ""}`;
+
+		if (subject === "service:") return yield* Effect.fail(deny("token has no subject"));
+
+		return { email: Option.fromNullishOr(claims.email), subject } satisfies AccessIdentity;
 	});
 
 const cookieToken = (request: Request): Option.Option<string> =>

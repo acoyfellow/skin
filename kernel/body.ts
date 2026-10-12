@@ -37,6 +37,10 @@ const COMPATIBILITY_DATE = "2026-09-01";
 
 const READ_ONLY_PREFIX = "src/kernel/";
 
+const HOUR_MS = 3_600_000;
+
+const MAX_BUILDS_PER_HOUR = 30;
+
 const writable = (path: string): Effect.Effect<string, InvalidPath> =>
 	Effect.flatMap(cleanPath(path), (clean) =>
 		clean.startsWith(READ_ONLY_PREFIX) ? Effect.fail(new InvalidPath({ path, reason: `${READ_ONLY_PREFIX} belongs to the kernel and is replaced on every build` })) : Effect.succeed(clean),
@@ -176,6 +180,10 @@ export class Body extends DurableObject<BodyEnv> {
 	constructor(ctx: DurableObjectState, env: BodyEnv) {
 		super(ctx, env);
 		ctx.blockConcurrencyWhile(async () => this.migrate());
+	}
+
+	private owner(): string {
+		return this.ctx.id.name ?? "unnamed";
 	}
 
 	private sql(query: string, ...bindings: ReadonlyArray<SqlStorageValue>): ReadonlyArray<Row> {
@@ -348,11 +356,30 @@ export class Body extends DurableObject<BodyEnv> {
 			if (same.status === "rejected") return encodeReport({ generation: same.id, status: "rejected", checks: same.checks, reason: `These exact files were already rejected as generation ${same.id}: ${same.note}` });
 		}
 
+		const limited = this.buildLimit();
+
+		if (limited !== undefined) return encodeReport({ generation: 0, status: "rejected", checks: [], reason: limited });
+
+		this.recordBuild();
+
 		const shipping = this.shipTree(tree, treeJson, treeHash, message).finally(() => this.building.delete(treeHash));
 
 		this.building.set(treeHash, shipping);
 
 		return encodeReport(await shipping);
+	}
+
+	private buildLimit(): string | undefined {
+		if (this.building.size > 0) return "Another generation is building. Wait for it to finish, then ship again.";
+
+		const since = Date.now() - HOUR_MS;
+		const recent = num(this.sql("SELECT COUNT(*) AS n FROM generations WHERE created_at > ?", since)[0] ?? {}, "n");
+
+		return recent >= MAX_BUILDS_PER_HOUR ? `This body built ${recent} generations in the last hour, the limit is ${MAX_BUILDS_PER_HOUR}. Try again later.` : undefined;
+	}
+
+	private recordBuild(): void {
+		this.sql("INSERT INTO meta (key, value) VALUES ('last_build', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", String(Date.now()));
 	}
 
 	private async shipTree(tree: Record<string, string>, treeJson: string, treeHash: string, message: string): Promise<ShipReport> {
@@ -428,7 +455,7 @@ export class Body extends DurableObject<BodyEnv> {
 	}
 
 	private callBuilder(files: ReadonlyMap<string, string>, id: number) {
-		const builder = this.env.BUILDER.getByName(`build-${id}`);
+		const builder = this.env.BUILDER.getByName(`${this.owner()}-build-${id}`);
 
 		return Effect.tryPromise({ try: () => builder.build(JSON.stringify(Object.fromEntries(files)), id), catch: (cause) => String(cause) }).pipe(
 			Effect.flatMap((json) => decodeOutcome(json).pipe(Effect.mapError((error) => error.message))),
@@ -454,12 +481,12 @@ export class Body extends DurableObject<BodyEnv> {
 	}
 
 	private isolate(id: number, output: Built): WorkerStub {
-		return this.env.LOADER.get(`generation-${id}`, () => ({
+		return this.env.LOADER.get(`${this.owner()}-generation-${id}`, () => ({
 			mainModule: output.mainModule,
 			modules: output.modules,
 			compatibilityDate: COMPATIBILITY_DATE,
 			compatibilityFlags: ["nodejs_compat"],
-			env: { STORE: this.ctx.exports.BodyStore({ props: {} }), GENERATION: String(id) },
+			env: { STORE: this.ctx.exports.BodyStore({ props: { user: this.owner() } }), GENERATION: String(id) },
 			globalOutbound: null,
 		}));
 	}

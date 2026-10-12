@@ -1,11 +1,11 @@
 {
   "target": "local",
   "base": "http://localhost:8790",
-  "at": "2026-10-12T20:48:21.894Z",
-  "nonce": "gsaa54",
-  "passed": 8,
-  "total": 8,
-  "ms": 87212,
+  "at": "2026-10-12T21:27:10.114Z",
+  "nonce": "cvy9hz",
+  "passed": 9,
+  "total": 9,
+  "ms": 100297,
   "results": [
     {
       "name": "the seed grows into a live generation that starts in a real browser",
@@ -21,7 +21,7 @@
         "errors": []
       },
       "pass": true,
-      "ms": 23575
+      "ms": 23253
     },
     {
       "name": "a change that does not bundle is rejected and the live app is untouched",
@@ -33,7 +33,7 @@
         "served": 1
       },
       "pass": true,
-      "ms": 84
+      "ms": 92
     },
     {
       "name": "a server that throws when it starts is rejected",
@@ -45,7 +45,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 14133
+      "ms": 13876
     },
     {
       "name": "a change that breaks a behavior the checks cover is rejected",
@@ -59,7 +59,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 14230
+      "ms": 13854
     },
     {
       "name": "data the server stores survives a new generation and a rollback",
@@ -68,7 +68,7 @@
         "status": 201
       },
       "pass": true,
-      "ms": 10
+      "ms": 11
     },
     {
       "name": "a good change goes live and renders in the browser",
@@ -77,9 +77,9 @@
         "generation": 5,
         "served": 5,
         "checks": [
-          "bundle:true:13923ms",
-          "boot:true:141ms",
-          "checks:true:12ms",
+          "bundle:true:13762ms",
+          "boot:true:131ms",
+          "checks:true:11ms",
           "page:true:0ms"
         ],
         "report": {
@@ -89,7 +89,7 @@
         }
       },
       "pass": true,
-      "ms": 20510
+      "ms": 20613
     },
     {
       "name": "a page that crashes in the browser is rolled back by the kernel on its own",
@@ -99,14 +99,14 @@
         "report": {
           "generation": 6,
           "ok": false,
-          "detail": "Uncaught Error: e2e gsaa54: the page crashes on start"
+          "detail": "Uncaught Error: e2e cvy9hz: the page crashes on start"
         },
         "liveAfter": 5,
         "status": "rejected",
-        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 5: Uncaught Error: e2e gsaa54: the page crashes on start"
+        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 5: Uncaught Error: e2e cvy9hz: the page crashes on start"
       },
       "pass": true,
-      "ms": 14517
+      "ms": 14288
     },
     {
       "name": "rolling back makes the seed live again and resets the draft to match",
@@ -117,7 +117,26 @@
         "notes": 1
       },
       "pass": true,
-      "ms": 38
+      "ms": 39
+    },
+    {
+      "name": "another person gets their own app, untouched by everything above",
+      "expected": "B grows their own first generation from the seed; B sees none of A's generations, files, or notes; A is unchanged",
+      "observed": {
+        "a": {
+          "user": "ufe5d79bcefa1fef9c1a2",
+          "generations": 6,
+          "live": 1
+        },
+        "b": {
+          "user": "u08514093b8d296c87814",
+          "generations": 1,
+          "live": 1,
+          "notes": 0
+        }
+      },
+      "pass": true,
+      "ms": 14029
     }
   ]
 }

@@ -4,6 +4,7 @@ import { type ConversationName, KillOutcomeJson, ReadOutcomeJson, SendOutcomeJso
 import { ConversationAgent } from "./conversation";
 import type { Body } from "./body";
 import { Repo } from "./files";
+import { ownerOfAgent, UserId } from "./identity";
 import { type HarnessFailed, Model, Pi } from "./harness";
 import { routeWorkersAIThroughBinding } from "./model";
 import { Meta } from "./meta";
@@ -29,7 +30,10 @@ export const conversationLayer = (ctx: DurableObjectState, model: Layer.Layer<Mo
 	return ConversationAgent.layer.pipe(Layer.provideMerge(pi));
 };
 
-const layerFor = (ctx: DurableObjectState, env: AgentEnv) => conversationLayer(ctx, Model.workersAI(env.MODEL), Repo.layer(env.BODY));
+const NO_OWNER = "u00000000000000000000";
+
+const layerFor = (ctx: DurableObjectState, env: AgentEnv) =>
+	conversationLayer(ctx, Model.workersAI(env.MODEL), Repo.layer(env.BODY, Option.getOrElse(ownerOfAgent(ctx.id.name), () => UserId.make(NO_OWNER))));
 
 const RESERVED_CLOSE_CODES = new Set([1005, 1006, 1015]);
 

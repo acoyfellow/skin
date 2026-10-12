@@ -1,12 +1,13 @@
 {
   "state": "experimenting",
-  "iteration": 2,
-  "northStar": "Asked for a change to its own code, planarian ships it live without a redeploy, and no generated change can take the running app down: 0 bricked deploys across a frozen set of good and deliberately broken change requests, with a rollback receipt for every rejected or reverted generation.",
+  "iteration": 3,
+  "northStar": "Every person who signs in gets their own app and agent. Asked for a change to their own code, it ships it live for that person only, without a redeploy, and no generated change can take their app down: 0 bricked apps across a frozen set of good and broken change requests, 0 changes visible to any other person, with a rollback receipt for every rejected or reverted generation.",
   "constraint": "Cloudflare only: Workers, Durable Objects, Worker Loader, Workers AI. The core is a PWA. Effect stays 4.0.0 (Foldkit peer).",
   "falsifiable": "A Worker can rebuild and swap its own Foldkit + Effect UI and server from source at runtime in under 30 s, and a broken generation is never promoted.",
   "proven": [],
   "unproven": [
     "Worker Loader and @cloudflare/worker-bundler run on the production account (proven locally only)",
+    "Per-person isolation holds on the deployed Worker with two real Access identities",
     "The same 8 scenarios pass against the deployed Worker behind Access",
     "The agent survives ctx.abort() mid-ship and the ship still lands once (tardigrade proved this for writes; not re-run for ship)",
     "A real model (Workers AI) can make a requested change and ship it through the gate"
@@ -14,7 +15,8 @@
   "disproven": [],
   "observed": [
     "001 local workerd: runtime build of a Foldkit + Effect app takes 10.0-11.2 s over 4 runs; caching node_modules does not help; Tailwind v4 compiles in 8-10 ms; Loader isolate answers in about 45 ms (receipts/001-runtime-build.local.jsonl)",
-    "e2e local (workerd, real Chromium): 8/8 scenarios in 87 s. Rejected: syntax error at bundle (84 ms), server throwing on start at boot, broken trim at checks (names the failing story). A page that crashes only in the browser passed the server gate, then the crash guard reported it on first load and the kernel rolled back to the last good generation. Rollback to the seed reset the draft; a note stored through STORE survived every generation (receipts/e2e-local.json)"
+    "e2e local (workerd, real Chromium): 8/8 scenarios in 87 s. Rejected: syntax error at bundle (84 ms), server throwing on start at boot, broken trim at checks (names the failing story). A page that crashes only in the browser passed the server gate, then the crash guard reported it on first load and the kernel rolled back to the last good generation. Rollback to the seed reset the draft; a note stored through STORE survived every generation (receipts/e2e-local.json)",
+    "e2e local: 9/9 in 100 s with two identities. Person B grew their own seed generation and saw none of A's 6 generations, files, or notes; A's app was unchanged; A and B resolved to different user ids (receipts/e2e-local.json)"
   ],
   "openQuestions": [
     "Client bundle is 869 KB: prebundle effect + foldkit as a vendor import map?",

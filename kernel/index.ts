@@ -23,7 +23,8 @@ import { Agent, type AgentEnv } from "./agent";
 import { Body } from "./body";
 import { Builder } from "./builder";
 import { kernelAsset } from "./shell";
-import { BODY_NAME, BodyStore } from "./store";
+import { agentName, devSubject, type Person, type UserId, userIdOf } from "./identity";
+import { BodyStore } from "./store";
 
 export { Agent, Body, Builder, BodyStore };
 
@@ -42,7 +43,7 @@ export const isSameOrigin = (request: Request): boolean => request.headers.get("
 
 const refuse = (status: number, reason: string) => new Response(reason, { status });
 
-const agentFor = (env: Env, name: ConversationName) => env.AGENT.getByName(name);
+const agentFor = (env: Env, user: UserId, name: ConversationName) => env.AGENT.getByName(agentName(user, name));
 
 const decodeSnapshot = Schema.decodeEffect(SnapshotJson);
 
@@ -58,7 +59,7 @@ const decodeRollback = Schema.decodeEffect(RollbackOutcomeJson);
 
 const decodeReport = Schema.decodeUnknownOption(BootReportJson);
 
-const bodyOf = (env: Env) => env.BODY.getByName(BODY_NAME);
+const bodyOf = (env: Env, user: UserId) => env.BODY.getByName(user);
 
 const bodyCall = <A>(promise: () => Promise<A>): Effect.Effect<A, FilesUnavailable> => Effect.tryPromise({ try: promise, catch: (cause) => new FilesUnavailable({ reason: String(cause) }) });
 
@@ -68,28 +69,28 @@ const call = <A>(promise: () => Promise<A>): Effect.Effect<A, AgentUnavailable> 
 
 const isKilled = Predicate.isTagged("Killed");
 
-const storedKills = (env: Env, name: ConversationName) =>
-	call(() => agentFor(env, name).getSnapshot(name)).pipe(
+const storedKills = (env: Env, user: UserId, name: ConversationName) =>
+	call(() => agentFor(env, user, name).getSnapshot(name)).pipe(
 		Effect.flatMap(decodeSnapshot),
 		Effect.catchTag("SchemaError", Effect.die),
 		Effect.map((snapshot) => snapshot.events.filter(isKilled).length),
 	);
 
-const handlers = (env: Env) =>
+const handlers = (env: Env, user: UserId) =>
 	AgentRpcs.toLayer({
-		Snapshot: ({ name }) => call(() => agentFor(env, name).getSnapshot(name)).pipe(Effect.flatMap(decodeSnapshot), Effect.catchTag("SchemaError", Effect.die)),
+		Snapshot: ({ name }) => call(() => agentFor(env, user, name).getSnapshot(name)).pipe(Effect.flatMap(decodeSnapshot), Effect.catchTag("SchemaError", Effect.die)),
 		Send: ({ name, text }) =>
-			call(() => agentFor(env, name).send(name, text)).pipe(Effect.flatMap(decodeSend), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
+			call(() => agentFor(env, user, name).send(name, text)).pipe(Effect.flatMap(decodeSend), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
 		Kill: ({ name }) =>
 			Effect.gen(function* () {
-				const before = yield* storedKills(env, name);
+				const before = yield* storedKills(env, user, name);
 
-				return yield* call(() => agentFor(env, name).kill(name)).pipe(
+				return yield* call(() => agentFor(env, user, name).kill(name)).pipe(
 					Effect.flatMap(decodeKill),
 					Effect.catchTag("SchemaError", Effect.die),
 					Effect.flatMap(Effect.fromResult),
 					Effect.catchTag("AgentUnavailable", (dropped) =>
-						storedKills(env, name).pipe(
+						storedKills(env, user, name).pipe(
 							Effect.orElseSucceed(() => before),
 							Effect.flatMap((after) => (after > before ? Effect.void : Effect.fail(dropped))),
 						),
@@ -97,31 +98,37 @@ const handlers = (env: Env) =>
 				);
 			}),
 		ReadFile: ({ name, path }) =>
-			call(() => agentFor(env, name).readFile(name, path)).pipe(Effect.flatMap(decodeRead), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
-		Body: () => bodyCall(() => bodyOf(env).state()).pipe(Effect.flatMap(decodeBodyState), Effect.catchTag("SchemaError", Effect.die)),
+			call(() => agentFor(env, user, name).readFile(name, path)).pipe(Effect.flatMap(decodeRead), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
+		Body: () => bodyCall(() => bodyOf(env, user).state()).pipe(Effect.flatMap(decodeBodyState), Effect.catchTag("SchemaError", Effect.die)),
 		Rollback: ({ generation }) =>
-			bodyCall(() => bodyOf(env).rollback(generation)).pipe(Effect.flatMap(decodeRollback), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
+			bodyCall(() => bodyOf(env, user).rollback(generation)).pipe(Effect.flatMap(decodeRollback), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
 	});
 
-const buildRpcHandler = (env: Env) =>
+const buildRpcHandler = (env: Env, user: UserId) =>
 	HttpRouter.toWebHandler(
 		RpcServer.layerHttp({ group: AgentRpcs, path: RPC_PATH, protocol: "http" }).pipe(
-			Layer.provide(handlers(env)),
+			Layer.provide(handlers(env, user)),
 			Layer.provide(RpcSerialization.layerJson),
 		),
 		{ disableLogger: true },
 	).handler;
 
-const rpcHandlers = new WeakMap<Env, ReturnType<typeof buildRpcHandler>>();
+const rpcHandlers = new WeakMap<Env, Map<UserId, ReturnType<typeof buildRpcHandler>>>();
 
-const rpcHandler = (env: Env): ReturnType<typeof buildRpcHandler> => {
-	const cached = rpcHandlers.get(env);
+const MAX_CACHED_HANDLERS = 64;
+
+const rpcHandler = (env: Env, user: UserId): ReturnType<typeof buildRpcHandler> => {
+	const forEnv = rpcHandlers.get(env) ?? new Map<UserId, ReturnType<typeof buildRpcHandler>>();
+	const cached = forEnv.get(user);
 
 	if (cached !== undefined) return cached;
 
-	const built = buildRpcHandler(env);
+	if (forEnv.size >= MAX_CACHED_HANDLERS) forEnv.clear();
 
-	rpcHandlers.set(env, built);
+	const built = buildRpcHandler(env, user);
+
+	forEnv.set(user, built);
+	rpcHandlers.set(env, forEnv);
 
 	return built;
 };
@@ -134,7 +141,7 @@ const rpcRequest = (request: Request): Request => {
 	return new Request(url, request);
 };
 
-const socket = (request: Request, env: Env, rawName: string): Promise<Response> =>
+const socket = (request: Request, env: Env, user: UserId, rawName: string): Promise<Response> =>
 	Option.match(decodeName(rawName), {
 		onNone: () => Promise.resolve(refuse(400, "bad conversation name")),
 		onSome: (name) => {
@@ -142,11 +149,13 @@ const socket = (request: Request, env: Env, rawName: string): Promise<Response> 
 
 			inner.searchParams.set("name", name);
 
-			return agentFor(env, name).fetch(new Request(inner, request));
+			return agentFor(env, user, name).fetch(new Request(inner, request));
 		},
 	});
 
 const MAX_REPORT = 4096;
+
+const WHO_AM_I = `${KERNEL_PREFIX}/api/me`;
 
 const CONSOLE_BODY = `${KERNEL_PREFIX}/api/body`;
 
@@ -158,24 +167,24 @@ const OWNER_FILE = /^\/_kernel\/api\/files\/(.+)$/;
 
 const MAX_MESSAGE = 500;
 
-const ownerShip = async (request: Request, env: Env): Promise<Response> => {
+const ownerShip = async (request: Request, env: Env, user: UserId): Promise<Response> => {
 	const message = (await request.text()).trim().slice(0, MAX_MESSAGE);
 
-	return bodyOf(env)
+	return bodyOf(env, user)
 		.ship(message === "" ? "Shipped by the owner" : message)
 		.then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
 };
 
 const CONSOLE_ROLLBACK = /^\/_kernel\/api\/rollback\/(\d+)$/;
 
-const report = async (request: Request, env: Env): Promise<Response> => {
+const report = async (request: Request, env: Env, user: UserId): Promise<Response> => {
 	const text = await request.text();
 
 	if (text.length > MAX_REPORT) return refuse(413, "report too large");
 
 	return Option.match(decodeReport(text), {
 		onNone: () => refuse(400, "bad report"),
-		onSome: async ({ generation, ok, detail }) => new Response(await bodyOf(env).report(generation, ok, detail)),
+		onSome: async ({ generation, ok, detail }) => new Response(await bodyOf(env, user).report(generation, ok, detail)),
 	});
 };
 
@@ -185,30 +194,41 @@ const isLocalDev = (request: Request, env: Env): boolean => env.LOCAL_DEV_WITHOU
 
 const NOT_CONFIGURED = "planarian is locked: set ACCESS_TEAM_DOMAIN and ACCESS_AUD and put the hostname behind Cloudflare Access. See README, Deploy.";
 
-const admit = (request: Request, env: Env): Promise<Option.Option<Response>> => {
-	if (isLocalDev(request, env)) return Promise.resolve(Option.none());
+type Admission = { readonly _tag: "Admitted"; readonly person: Person } | { readonly _tag: "Refused"; readonly response: Response };
+
+const admitted = (subject: string, email: Option.Option<string>): Effect.Effect<Admission> =>
+	Effect.map(userIdOf(subject), (user) => ({ _tag: "Admitted", person: { user, email } }));
+
+const refused = (response: Response): Effect.Effect<Admission> => Effect.succeed({ _tag: "Refused", response });
+
+const admit = (request: Request, env: Env): Promise<Admission> => {
+	if (isLocalDev(request, env)) return Effect.runPromise(admitted(devSubject(request), Option.none()));
 
 	return Option.match(accessConfig(env.ACCESS_TEAM_DOMAIN, env.ACCESS_AUD), {
-		onNone: () => Promise.resolve(Option.some(refuse(503, NOT_CONFIGURED))),
+		onNone: () => Effect.runPromise(refused(refuse(503, NOT_CONFIGURED))),
 		onSome: (config) =>
 			Option.match(accessToken(request), {
-				onNone: () => Promise.resolve(Option.some(refuse(401, "sign in through Cloudflare Access"))),
+				onNone: () => Effect.runPromise(refused(refuse(401, "sign in through Cloudflare Access"))),
 				onSome: (token) =>
 					Effect.runPromise(
 						verifyAccessToken(config, token).pipe(
-							Effect.as(Option.none()),
-							Effect.catchTag("AccessDenied", ({ reason }) => Effect.succeed(Option.some(refuse(403, `Access token rejected: ${reason}`)))),
+							Effect.flatMap(({ subject, email }) => admitted(subject, email)),
+							Effect.catchTag("AccessDenied", ({ reason }) => refused(refuse(403, `Access token rejected: ${reason}`))),
 						),
 					),
 			}),
 	});
 };
 
+const whoAmI = (person: Person) => Response.json({ user: person.user, email: Option.getOrNull(person.email) });
+
 export default {
 	async fetch(request, env) {
-		const denied = await admit(request, env);
+		const admission = await admit(request, env);
 
-		if (Option.isSome(denied)) return denied.value;
+		if (admission._tag === "Refused") return admission.response;
+
+		const { user } = admission.person;
 
 		const { pathname } = new URL(request.url);
 		const isWrite = request.method !== "GET" || request.headers.get("Upgrade") === "websocket";
@@ -216,23 +236,25 @@ export default {
 
 		if (isWrite && !isSameOrigin(request)) return refuse(403, "cross-origin request refused");
 
-		if (pathname === RPC_PATH || pathname === `${RPC_PATH}/`) return rpcHandler(env)(rpcRequest(request), Context.empty());
+		if (pathname === RPC_PATH || pathname === `${RPC_PATH}/`) return rpcHandler(env, user)(rpcRequest(request), Context.empty());
 
 		const socketMatch = SOCKET_ROUTE.exec(pathname);
 
 		if (socketMatch?.[1] !== undefined) {
-			return request.headers.get("Upgrade") === "websocket" ? socket(request, env, socketMatch[1]) : refuse(426, "expected websocket");
+			return request.headers.get("Upgrade") === "websocket" ? socket(request, env, user, socketMatch[1]) : refuse(426, "expected websocket");
 		}
 
-		if (pathname === BODY_SOCKET_PATH) return request.headers.get("Upgrade") === "websocket" ? bodyOf(env).fetch(request) : refuse(426, "expected websocket");
+		if (pathname === BODY_SOCKET_PATH) return request.headers.get("Upgrade") === "websocket" ? bodyOf(env, user).fetch(request) : refuse(426, "expected websocket");
 
-		if (pathname === REPORT_PATH && request.method === "POST") return report(request, env);
+		if (pathname === WHO_AM_I && request.method === "GET") return whoAmI(admission.person);
 
-		if (pathname === CONSOLE_BODY && request.method === "GET") return bodyOf(env).state().then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
+		if (pathname === REPORT_PATH && request.method === "POST") return report(request, env, user);
 
-		if (pathname === CONSOLE_RESEED && request.method === "POST") return bodyOf(env).reseed().then((text) => new Response(text));
+		if (pathname === CONSOLE_BODY && request.method === "GET") return bodyOf(env, user).state().then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
 
-		if (pathname === OWNER_SHIP && request.method === "POST") return ownerShip(request, env);
+		if (pathname === CONSOLE_RESEED && request.method === "POST") return bodyOf(env, user).reseed().then((text) => new Response(text));
+
+		if (pathname === OWNER_SHIP && request.method === "POST") return ownerShip(request, env, user);
 
 		const fileMatch = OWNER_FILE.exec(pathname);
 
@@ -240,20 +262,20 @@ export default {
 			const path = decodeURIComponent(fileMatch[1]);
 			const content = await request.text();
 
-			return bodyOf(env).write(path, content).then((text) => new Response(text, { status: text.startsWith("Refused") ? 400 : 200 }));
+			return bodyOf(env, user).write(path, content).then((text) => new Response(text, { status: text.startsWith("Refused") ? 400 : 200 }));
 		}
 
-		if (fileMatch?.[1] !== undefined && request.method === "DELETE") return bodyOf(env).remove(decodeURIComponent(fileMatch[1])).then((text) => new Response(text));
+		if (fileMatch?.[1] !== undefined && request.method === "DELETE") return bodyOf(env, user).remove(decodeURIComponent(fileMatch[1])).then((text) => new Response(text));
 
 		if (fileMatch?.[1] !== undefined && request.method === "GET") {
-			const content = await bodyOf(env).read(decodeURIComponent(fileMatch[1]));
+			const content = await bodyOf(env, user).read(decodeURIComponent(fileMatch[1]));
 
 			return content === null ? refuse(404, "no such file") : new Response(content, { headers: { "content-type": "text/plain; charset=utf-8" } });
 		}
 
 		const rollbackMatch = CONSOLE_ROLLBACK.exec(pathname);
 
-		if (rollbackMatch?.[1] !== undefined && request.method === "POST") return bodyOf(env).rollback(Number(rollbackMatch[1])).then((json) => new Response(json));
+		if (rollbackMatch?.[1] !== undefined && request.method === "POST") return bodyOf(env, user).rollback(Number(rollbackMatch[1])).then((json) => new Response(json));
 
 		const asset = kernelAsset(pathname);
 
@@ -261,6 +283,6 @@ export default {
 
 		if (isKernel) return refuse(404, "not found");
 
-		return bodyOf(env).fetch(request);
+		return bodyOf(env, user).fetch(request);
 	},
 } satisfies ExportedHandler<Env>;

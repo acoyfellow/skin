@@ -11,19 +11,29 @@ const ORIGIN = new URL(BASE).origin;
 
 const NONCE = Math.random().toString(36).slice(2, 8);
 
+const LOCAL = TARGET === "local";
+
+const PERSON_A = LOCAL ? { "X-Dev-User": `a-${NONCE}` } : ACCESS;
+
+const PERSON_B = LOCAL
+	? { "X-Dev-User": `b-${NONCE}` }
+	: process.env.CF_ACCESS_CLIENT_ID_B && process.env.CF_ACCESS_CLIENT_SECRET_B
+		? { "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID_B, "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET_B }
+		: undefined;
+
 const results = [];
 
 const started = Date.now();
 
-const http = async (method, path, body) => {
-	const init = { method, headers: { ...ACCESS, Origin: ORIGIN, Accept: "text/html,application/json" }, redirect: "manual" };
+const http = async (method, path, body, person = PERSON_A) => {
+	const init = { method, headers: { ...person, Origin: ORIGIN, Accept: "text/html,application/json" }, redirect: "manual" };
 	const response = await fetch(BASE + path, body === undefined ? init : { ...init, body });
 	const text = await response.text();
 
 	return { status: response.status, text, generation: Number(response.headers.get("x-generation") ?? NaN) };
 };
 
-const state = async () => JSON.parse((await http("GET", "/_kernel/api/body")).text);
+const state = async (person = PERSON_A) => JSON.parse((await http("GET", "/_kernel/api/body", undefined, person)).text);
 
 const read = async (path) => {
 	const response = await http("GET", `/_kernel/api/files/${encodeURIComponent(path)}`);
@@ -74,7 +84,7 @@ const scenario = async (name, expected, run) => {
 const browser = await chromium.launch();
 
 const visit = async () => {
-	const context = await browser.newContext({ extraHTTPHeaders: ACCESS });
+	const context = await browser.newContext({ extraHTTPHeaders: PERSON_A });
 	const page = await context.newPage();
 	const reports = [];
 	const errors = [];
@@ -245,6 +255,39 @@ await scenario("rolling back makes the seed live again and resets the draft to m
 	if (!notes.includes(`e2e note ${NONCE}`)) throw new Error(`the note is gone: ${JSON.stringify(notes)}`);
 
 	return { live: (await state()).live, served, notes: notes.length };
+});
+
+await scenario("another person gets their own app, untouched by everything above", "B grows their own first generation from the seed; B sees none of A's generations, files, or notes; A is unchanged", async () => {
+	if (PERSON_B === undefined) throw new Error("no second identity: set CF_ACCESS_CLIENT_ID_B and CF_ACCESS_CLIENT_SECRET_B");
+
+	const before = await state();
+
+	await http("GET", "/", undefined, PERSON_B);
+
+	const theirs = await until("B's first generation", async () => {
+		const current = await state(PERSON_B);
+
+		return current.live !== null ? current : undefined;
+	}, 240_000);
+
+	const theirNotes = JSON.parse((await http("GET", "/api/notes", undefined, PERSON_B)).text).notes;
+	const theirTitle = (await http("GET", `/_kernel/api/files/${encodeURIComponent("src/view/index.ts")}`, undefined, PERSON_B)).text;
+	const after = await state();
+
+	if (theirs.generations.length !== 1) throw new Error(`B has ${theirs.generations.length} generations, expected only their own seed`);
+
+	if (theirNotes.length !== 0) throw new Error(`B can see notes: ${JSON.stringify(theirNotes)}`);
+
+	if (theirTitle.includes(NONCE)) throw new Error("B's draft contains A's change");
+
+	if (after.live !== before.live || after.generations.length !== before.generations.length) throw new Error("A's app changed while B grew theirs");
+
+	const me = JSON.parse((await http("GET", "/_kernel/api/me", undefined, PERSON_B)).text);
+	const meA = JSON.parse((await http("GET", "/_kernel/api/me")).text);
+
+	if (me.user === meA.user) throw new Error("A and B resolved to the same user");
+
+	return { a: { user: meA.user, generations: after.generations.length, live: after.live }, b: { user: me.user, generations: theirs.generations.length, live: theirs.live, notes: theirNotes.length } };
 });
 
 await browser.close();

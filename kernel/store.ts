@@ -3,11 +3,11 @@ import type { Body } from "./body";
 
 export type StoreEnv = { readonly BODY: DurableObjectNamespace<Body> };
 
-export const BODY_NAME = "body";
+export type StoreProps = { readonly user: string };
 
-export class BodyStore extends WorkerEntrypoint<StoreEnv> {
+export class BodyStore extends WorkerEntrypoint<StoreEnv, StoreProps> {
 	private body() {
-		return this.env.BODY.getByName(BODY_NAME);
+		return this.env.BODY.getByName(this.ctx.props.user);
 	}
 
 	get(key: string): Promise<string | null> {

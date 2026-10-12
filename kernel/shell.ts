@@ -164,6 +164,7 @@ button,a.button{font:inherit;border:1px solid #d4d4d4;background:#fff;border-rad
 pre{white-space:pre-wrap;margin:4px 0 0;font-size:12px;color:#c41a1a}
 </style>
 <h1>Kernel console</h1>
+<p id="who">&nbsp;</p>
 <p>The kernel cannot be edited by the agent. Use this page if the app itself stops working: roll back to any generation that passed the gate, or open one to look at it.</p>
 <p><a class="button" href="/">Open the live app</a> <a class="button" href="${KERNEL_PREFIX}/unpin">Follow live</a> <button id="reseed">Reset the draft to the factory seed</button></p>
 <table><thead><tr><th>#</th><th>Change</th><th>Status</th><th>Browser</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="5">Loading…</td></tr></tbody></table>
@@ -186,6 +187,7 @@ const load = () => fetch("${KERNEL_PREFIX}/api/body").then((response) => respons
 	}
 	if (state.generations.length === 0) rows.innerHTML = "<tr><td colspan=5>No generations yet. Open the app to grow the first one.</td></tr>";
 });
+fetch("${KERNEL_PREFIX}/api/me").then((response) => response.json()).then((me) => { document.getElementById("who").textContent = "Signed in as " + (me.email ?? me.user) + ". This is your own app: nobody else sees or shares its generations."; });
 document.getElementById("reseed").onclick = () => confirm("Replace the draft with the factory seed? The live generation is not changed until you ship.") && post("${KERNEL_PREFIX}/api/reseed");
 load();
 </script>

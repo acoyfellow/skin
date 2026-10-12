@@ -2,9 +2,11 @@
 
 # planarian
 
-**An app that rewrites its own code while you use it, and can't brick itself. A reference for [Pi Durable](https://github.com/earendil-works/pi/tree/main/packages/durable), [Worker Loader](https://developers.cloudflare.com/workers/runtime-apis/bindings/worker-loader/), [Effect v4](https://effect.website), and [Foldkit](https://foldkit.dev) on Cloudflare.**
+**A web app that every person who signs in grows into their own: each account gets its own agent, which rewrites that person's copy of the app while they use it, and can't brick it. A reference for [Pi Durable](https://github.com/earendil-works/pi/tree/main/packages/durable), [Worker Loader](https://developers.cloudflare.com/workers/runtime-apis/bindings/worker-loader/), [Effect v4](https://effect.website), and [Foldkit](https://foldkit.dev) on Cloudflare.**
 
-Self-modifying tools like [bb](https://getbb.app) let an agent change the app you are working in. The catch is the failure mode: one bad change and the tool you need to fix it is the thing that's broken. planarian splits itself in two. A small **kernel**, deployed once, holds the agent, the generations, and the gate. Everything else, the **body**, is source the agent edits at runtime: the Foldkit UI (including the chat you talk to it through), the server, the styles, and the checks. A change goes live only after the kernel builds it into a new generation inside Cloudflare and it passes the gate. If a generation still crashes in your browser, the kernel rolls it back on its own.
+Self-modifying agents like [bb](https://getbb.app) and [Ouroboros](https://github.com/razzant/ouroboros) evolve one repository on one machine: the tool itself. planarian evolves per person. It is a web app behind a login; whoever has access signs in and gets their own body and their own agent, and every change that agent makes lands only in that person's app. Everyone starts from the same seed and grows apart.
+
+Self-modifying tools let an agent change the app you are working in. The catch is the failure mode: one bad change and the tool you need to fix it is the thing that's broken. planarian splits itself in two. A small **kernel**, deployed once, holds the agent, the generations, and the gate. Everything else, the **body**, is source the agent edits at runtime: the Foldkit UI (including the chat you talk to it through), the server, the styles, and the checks. A change goes live only after the kernel builds it into a new generation inside Cloudflare and it passes the gate. If a generation still crashes in your browser, the kernel rolls it back on its own.
 
 A planarian cut in pieces regrows the whole worm from each piece, head included.
 
@@ -45,8 +47,9 @@ pass  data the server stores survives a new generation and a rollback (10 ms)
 pass  a good change goes live and renders in the browser (20510 ms)
 pass  a page that crashes in the browser is rolled back by the kernel on its own (14517 ms)
 pass  rolling back makes the seed live again and resets the draft to match (38 ms)
+pass  another person gets their own app, untouched by everything above (14029 ms)
 
-8/8 scenarios passed in 87 s
+9/9 scenarios passed in 100 s
 ```
 
 `npm run check` also runs the agent itself, with Pi's fake model, inside workerd: it is killed three times with `ctx.abort()` while it works, comes back each time, and ships exactly one generation ([`test/revival/`](test/revival)).
@@ -79,7 +82,8 @@ planarian is locked by default: every request must carry a Cloudflare Access tok
 - **It does not typecheck generations.** esbuild strips types; the gate is bundle, boot, checks, and page. A type error that still runs gets through.
 - **It does not roll back crashes after start.** A generation that started once and crashes later is reported to the guard and shown in a banner, but stays live until you or the agent roll back.
 - **It does not give body code the network or any secret.** Generations run with `globalOutbound: null`. The only binding is `STORE`.
-- **It is not multi-tenant.** One deployment is one owner's app, behind one Access application.
+- **It does not share generations between people.** Each signed-in identity has its own Body, agents, generations, and `STORE`, keyed by a hash of the Access subject. Nothing crosses between them; there is no way yet to fork someone else's app.
+- **It does not meter the model per person.** Builds are limited per person (one at a time, 30 an hour); Workers AI usage is not yet.
 
 ## Where to edit behavior
 
