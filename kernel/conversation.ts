@@ -10,6 +10,7 @@ import {
 	KilledEvent,
 	KilledFrame,
 	KILLED_FROM_THE_UI,
+	type BodyState,
 	type Live,
 	LiveFrame,
 	KillNotSaved,
@@ -47,7 +48,7 @@ export type Conversation = {
 	readonly keepAlive: Effect.Effect<void>;
 };
 
-export class ConversationAgent extends Context.Service<ConversationAgent, Conversation>()("tardigrade/ConversationAgent") {
+export class ConversationAgent extends Context.Service<ConversationAgent, Conversation>()("planarian/ConversationAgent") {
 	static readonly layer = Layer.effect(
 			ConversationAgent,
 			Effect.gen(function* () {
@@ -72,11 +73,11 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 
 				const record = (event: TimelineEvent) => Effect.flatMap(store.addEvent(event), (events) => broadcast.send(EventsFrame.make({ events })));
 
-				const pushFiles = pi.filesChanged;
+				const pushBody = pi.bodyChanged;
 
 				const snapshot: Effect.Effect<Snapshot> = Effect.gen(function* () {
-					const [all, repo] = yield* Effect.all([blocks, Effect.result(Effect.all({ files: pi.repo.list, commits: pi.repo.log }))], { concurrency: "unbounded" });
-					const { files, commits } = Result.getOrElse(repo, () => ({ files: [], commits: [] }));
+					const [all, repo] = yield* Effect.all([blocks, Effect.result(pi.repo.state)], { concurrency: "unbounded" });
+					const body = Result.getOrElse(repo, (): BodyState => ({ files: [], generations: [], live: Option.none(), dirty: false }));
 
 					return {
 						name: yield* store.name,
@@ -85,11 +86,10 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 						busy: yield* Ref.get(driving),
 						blocks: all,
 						live: yield* liveView,
-						files,
-						commits,
+						body,
 						events: yield* store.events,
 						killedAt: yield* store.killedAt,
-						filesError: Result.match(repo, { onSuccess: () => Option.none(), onFailure: (error) => Option.some(`Files are unavailable: ${error._tag}`) }),
+						filesError: Result.match(repo, { onSuccess: () => Option.none(), onFailure: (error) => Option.some(`The body is unavailable: ${error.reason}`) }),
 					};
 				});
 
@@ -202,8 +202,7 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 
 				const readFile = (path: string) =>
 					pi.repo.read(path).pipe(
-						Effect.catchTag("InvalidPath", () => Effect.succeed(Option.none<string>())),
-						Effect.catchTag("RepoUnavailable", (error) => Effect.fail(new FilesUnavailable({ reason: String(error.cause) }))),
+						Effect.catchTag("BodyUnavailable", (error) => Effect.fail(new FilesUnavailable({ reason: error.reason }))),
 						Effect.flatMap(Option.match({ onSome: Effect.succeed, onNone: () => Effect.fail(new FileNotFound({ path })) })),
 					);
 
@@ -213,7 +212,7 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 
 				yield* object.background(Stream.runForEach(pi.live, onLive));
 				yield* object.background(comeBack(yield* revival));
-				yield* object.background(pushFiles(pi.repo));
+				yield* object.background(pushBody(pi.repo));
 
 				return { snapshot, send, kill, readFile, keepAlive };
 			}),

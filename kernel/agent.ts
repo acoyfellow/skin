@@ -2,13 +2,14 @@ import { DurableObject } from "cloudflare:workers";
 import { Cause, Effect, Exit, Layer, ManagedRuntime, Option, Schema } from "effect";
 import { type ConversationName, KillOutcomeJson, ReadOutcomeJson, SendOutcomeJson, ServerFrameJson, SnapshotFrame, SnapshotJson } from "../shared/protocol";
 import { ConversationAgent } from "./conversation";
-import { Repo, type RepoUnavailable } from "./files";
+import type { Body } from "./body";
+import { Repo } from "./files";
 import { type HarnessFailed, Model, Pi } from "./harness";
 import { routeWorkersAIThroughBinding } from "./model";
 import { Meta } from "./meta";
 import { Broadcast, DurableObjectContext, Store } from "./services";
 
-export type AgentEnv = { readonly AI: Ai; readonly ARTIFACTS: Artifacts; readonly MODEL: string };
+export type AgentEnv = { readonly AI: Ai; readonly BODY: DurableObjectNamespace<Body>; readonly MODEL: string };
 
 const encodeSnapshot = Schema.encodeSync(SnapshotJson);
 
@@ -20,7 +21,7 @@ const encodeKill = Schema.encodeSync(KillOutcomeJson);
 
 const encodeRead = Schema.encodeSync(ReadOutcomeJson);
 
-export const conversationLayer = (ctx: DurableObjectState, model: Layer.Layer<Model>, files: Layer.Layer<Repo, RepoUnavailable>) => {
+export const conversationLayer = (ctx: DurableObjectState, model: Layer.Layer<Model>, files: Layer.Layer<Repo>) => {
 	const object = Layer.mergeAll(DurableObjectContext.layer(ctx), Store.layer(ctx.storage));
 	const broadcast = Broadcast.layer.pipe(Layer.provideMerge(object));
 	const pi = Pi.layer(ctx.storage).pipe(Layer.provide(files), Layer.provideMerge(model), Layer.provideMerge(broadcast));
@@ -28,8 +29,7 @@ export const conversationLayer = (ctx: DurableObjectState, model: Layer.Layer<Mo
 	return ConversationAgent.layer.pipe(Layer.provideMerge(pi));
 };
 
-const layerFor = (ctx: DurableObjectState, env: AgentEnv, name: ConversationName) =>
-	conversationLayer(ctx, Model.workersAI(env.MODEL), Repo.layer(env.ARTIFACTS, `tg-${name}`));
+const layerFor = (ctx: DurableObjectState, env: AgentEnv) => conversationLayer(ctx, Model.workersAI(env.MODEL), Repo.layer(env.BODY));
 
 const RESERVED_CLOSE_CODES = new Set([1005, 1006, 1015]);
 
@@ -43,7 +43,7 @@ const withAgent = <A, E>(use: (agent: ConversationAgent["Service"]) => Effect.Ef
 	});
 
 export class Agent extends DurableObject<AgentEnv> {
-	private runtime: Option.Option<ManagedRuntime.ManagedRuntime<Services, HarnessFailed | RepoUnavailable>> = Option.none();
+	private runtime: Option.Option<ManagedRuntime.ManagedRuntime<Services, HarnessFailed>> = Option.none();
 
 	constructor(ctx: DurableObjectState, env: AgentEnv) {
 		super(ctx, env);
@@ -66,11 +66,11 @@ export class Agent extends DurableObject<AgentEnv> {
 		return runtime.runPromiseExit(effect).then((exit) => (Exit.isSuccess(exit) ? exit.value : this.reset(runtime).then(() => Promise.reject(Cause.squash(exit.cause)))));
 	}
 
-	protected layer(ctx: DurableObjectState, name: ConversationName) {
-		return layerFor(ctx, this.env, name);
+	protected layer(ctx: DurableObjectState, _name: ConversationName) {
+		return layerFor(ctx, this.env);
 	}
 
-	private reset(runtime: ManagedRuntime.ManagedRuntime<Services, HarnessFailed | RepoUnavailable>): Promise<void> {
+	private reset(runtime: ManagedRuntime.ManagedRuntime<Services, HarnessFailed>): Promise<void> {
 		this.runtime = Option.none();
 
 		return runtime.dispose();

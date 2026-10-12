@@ -3,12 +3,12 @@ import { Type } from "@earendil-works/pi-ai";
 import { type CreateModelsOptions, createModels, type Provider } from "@earendil-works/pi-ai/models";
 import { cloudflareWorkersAIProvider } from "@earendil-works/pi-ai/providers/cloudflare-workers-ai";
 import { type Conversation, createRegistry, defineExtension, defineTool, Harness, LiveDoc, section } from "@earendil-works/pi-durable";
-import { Context, Effect, Layer, Match, Option, Queue, Schema, Stream } from "effect";
-import { type Block, FilesFrame } from "../shared/protocol";
-import { type InvalidPath, type PushRejected, Repo, type RepoFiles, type RepoUnavailable } from "./files";
+import { Context, Effect, Layer, Option, Queue, Schema, Stream } from "effect";
+import { type Block, BodyFrame, type ShipReport } from "../shared/protocol";
+import { type BodyUnavailable, Repo, type RepoFiles } from "./files";
 import { bindingAuthContext } from "./model";
 import { Broadcast } from "./services";
-import { openDurableObjectSqliteStorage } from "./vendor/pi-durable-do-sqlite";
+import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import { decodePiLiveState, decodePiMessages, type PiLiveState, toBlocks } from "./view";
 
 const CONTEXT = BACKGROUND_CONTEXT;
@@ -16,10 +16,12 @@ const CONTEXT = BACKGROUND_CONTEXT;
 const HISTORY_LIMIT = 500;
 
 const PROMPT = [
-	"You are tardigrade, a coding agent whose work survives crashes.",
-	"Your workspace is a git repository. Every file you write becomes a commit.",
-	"Use list_files and read_file before changing existing files. Use write_file to create or replace a whole file.",
-	"Do the work instead of describing it. When finished, reply in one or two short sentences.",
+	"You are planarian: an app that rewrites its own code while the owner uses it.",
+	"Your body is the app itself: its Foldkit client, its server, its styles, and its checks, including the chat you are speaking through.",
+	"Start by reading AGENTS.md with read_file. It explains the layout and the rules.",
+	"write_file and delete_file change the draft only. ship builds the draft, runs the gate, and makes it live only if every check passes. If ship rejects it, read the errors, fix the files, and ship again.",
+	"rollback makes an earlier generation live again.",
+	"Do the work instead of describing it. When finished, reply in one or two short sentences that say which generation is live.",
 ].join("\n");
 
 export class HarnessFailed extends Schema.TaggedError<HarnessFailed>()("HarnessFailed", { step: Schema.String, reason: Schema.String }) {}
@@ -30,60 +32,67 @@ const pi = <A>(step: string, run: () => Promise<A>) => Effect.tryPromise({ try: 
 
 const text = (value: string) => ({ content: [{ type: "text" as const, text: value }] });
 
-type FilesChanged = (repo: RepoFiles) => Effect.Effect<void>;
+type BodyChanged = (repo: RepoFiles) => Effect.Effect<void>;
 
-type ToolFailure = InvalidPath | RepoUnavailable | PushRejected;
+type ToolFailure = BodyUnavailable;
 
-const explain = (failure: ToolFailure): string =>
-	Match.value(failure).pipe(
-		Match.tagsExhaustive({
-			InvalidPath: ({ path }) => `Invalid path: ${path}`,
-			RepoUnavailable: ({ repo }) => `The file store for ${repo} is unavailable. Try again later.`,
-			PushRejected: ({ repo }) => `The commit to ${repo} was made but the push was rejected twice. Try again later.`,
-		}),
-	);
+const explain = (failure: ToolFailure): string => `The body is unavailable: ${failure.reason}. Try again.`;
 
-const tools = (repo: RepoFiles, filesChanged: FilesChanged, context: Context.Context<never>) => {
+const describeReport = (report: ShipReport): string =>
+	[
+		`Generation ${report.generation}: ${report.status}. ${report.reason}`,
+		...report.checks.map((check) => `- ${check.ok ? "pass" : "FAIL"} ${check.name} (${check.ms} ms)${check.ok ? "" : `\n${check.detail}`}`),
+	].join("\n");
+
+const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Context<never>) => {
 	const run = <A>(effect: Effect.Effect<A, ToolFailure>) => Effect.runPromiseWith(context)(effect.pipe(Effect.catch((failure) => Effect.fail(new Error(explain(failure))))));
 
 	return [
 		defineTool({
 			name: "list_files",
-			description: "List every file in the repository.",
+			description: "List every file in the draft of your body.",
 			parameters: Type.Object({}),
 			replay: "safe",
-			execute: () => run(repo.list.pipe(Effect.map((files) => text(files.length > 0 ? files.join("\n") : "(empty repository)")))),
+			execute: () => run(repo.list.pipe(Effect.map((files) => text(files.length > 0 ? files.join("\n") : "(empty draft)")))),
 		}),
 		defineTool({
 			name: "read_file",
-			description: "Read a file from the repository.",
+			description: "Read a file from the draft of your body.",
 			parameters: Type.Object({ path: Type.String() }),
 			replay: "safe",
-			execute: (args) =>
-				run(
-					repo.read(args.path).pipe(
-						Effect.map(Option.match({ onSome: text, onNone: () => text(`No such file: ${args.path}`) })),
-						Effect.catchTag("InvalidPath", ({ path }) => Effect.succeed(text(`Invalid path: ${path}`))),
-					),
-				),
+			execute: (args) => run(repo.read(args.path).pipe(Effect.map(Option.match({ onSome: text, onNone: () => text(`No such file: ${args.path}`) })))),
 		}),
 		defineTool({
 			name: "write_file",
-			description: "Create or replace a whole file. Each call is one git commit.",
-			parameters: Type.Object({
-				path: Type.String(),
-				content: Type.String(),
-				message: Type.Optional(Type.String({ description: "Commit message" })),
-			}),
+			description: "Create or replace a whole file in the draft. Nothing goes live until you ship.",
+			parameters: Type.Object({ path: Type.String(), content: Type.String() }),
 			replay: "safe",
 			executionMode: "sequential",
-			execute: (args) =>
-				run(
-					repo.write(args.path, args.content, args.message ?? `Write ${args.path}`).pipe(
-						Effect.tap(() => filesChanged(repo)),
-						Effect.map(({ oid, changed }) => text(`${changed ? `Committed ${oid.slice(0, 7)}` : "Already up to date"}: ${args.path}`)),
-					),
-				),
+			execute: (args) => run(repo.write(args.path, args.content).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map(text))),
+		}),
+		defineTool({
+			name: "delete_file",
+			description: "Delete a file from the draft. Nothing goes live until you ship.",
+			parameters: Type.Object({ path: Type.String() }),
+			replay: "safe",
+			executionMode: "sequential",
+			execute: (args) => run(repo.remove(args.path).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map(text))),
+		}),
+		defineTool({
+			name: "ship",
+			description: "Build the draft into a new generation, run the gate, and make it live only if every check passes. Returns each check, with errors for any that failed.",
+			parameters: Type.Object({ message: Type.String({ description: "What this generation changes, in one line" }) }),
+			replay: "safe",
+			executionMode: "sequential",
+			execute: (args) => run(repo.ship(args.message).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map((report) => text(describeReport(report))))),
+		}),
+		defineTool({
+			name: "rollback",
+			description: "Make an earlier generation that passed the gate live again. The draft is reset to match it.",
+			parameters: Type.Object({ generation: Type.Number() }),
+			replay: "safe",
+			executionMode: "sequential",
+			execute: (args) => run(repo.rollback(args.generation).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map(text))),
 		}),
 	];
 };
@@ -93,16 +102,16 @@ type Agentic = {
 	readonly live: Stream.Stream<Option.Option<PiLiveState>>;
 	readonly blocks: Effect.Effect<ReadonlyArray<Block>, HarnessFailed>;
 	readonly run: (requestId: string, input: string) => Effect.Effect<void, HarnessFailed | RunEnded>;
-	readonly filesChanged: FilesChanged;
+	readonly bodyChanged: BodyChanged;
 };
 
 type ModelChoice = { readonly provider: Provider; readonly modelId: string; readonly options: CreateModelsOptions };
 
-export class Model extends Context.Service<Model, ModelChoice>()("tardigrade/Model") {
+export class Model extends Context.Service<Model, ModelChoice>()("planarian/Model") {
 	static readonly workersAI = (modelId: string) => Layer.succeed(Model, { provider: cloudflareWorkersAIProvider(), modelId, options: { authContext: bindingAuthContext } });
 }
 
-export class Pi extends Context.Service<Pi, Agentic>()("tardigrade/Pi") {
+export class Pi extends Context.Service<Pi, Agentic>()("planarian/Pi") {
 	static readonly layer = (storage: DurableObjectStorage) =>
 		Layer.effect(
 			Pi,
@@ -110,9 +119,9 @@ export class Pi extends Context.Service<Pi, Agentic>()("tardigrade/Pi") {
 				const repo = yield* Repo;
 				const broadcast = yield* Broadcast;
 
-				const filesChanged: FilesChanged = (changed) =>
-					Effect.all({ files: changed.list, commits: changed.log }).pipe(
-						Effect.flatMap(({ files, commits }) => broadcast.send(FilesFrame.make({ files, commits }))),
+				const bodyChanged: BodyChanged = (changed) =>
+					changed.state.pipe(
+						Effect.flatMap((body) => broadcast.send(BodyFrame.make({ body }))),
 						Effect.ignore,
 					);
 
@@ -123,7 +132,7 @@ export class Pi extends Context.Service<Pi, Agentic>()("tardigrade/Pi") {
 
 				const registry = createRegistry();
 
-				registry.install(defineExtension({ name: "tardigrade", sections: [section("preamble", () => PROMPT, { tag: false })], tools: tools(repo, filesChanged, yield* Effect.context<never>()) }));
+				registry.install(defineExtension({ name: "planarian", sections: [section("preamble", () => PROMPT, { tag: false })], tools: tools(repo, bodyChanged, yield* Effect.context<never>()) }));
 
 				const harness = yield* Effect.acquireRelease(
 					pi("open", async () => Harness.open(await openDurableObjectSqliteStorage(storage), { models, registry }, CONTEXT)),
@@ -162,7 +171,7 @@ export class Pi extends Context.Service<Pi, Agentic>()("tardigrade/Pi") {
 
 				harness.resume();
 
-				return { repo, live, blocks, run, filesChanged };
+				return { repo, live, blocks, run, bodyChanged };
 			}),
 		);
 }
