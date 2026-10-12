@@ -5,9 +5,47 @@ export const ConversationName = Schema.String.check(Schema.isPattern(/^[a-z0-9][
 
 export type ConversationName = typeof ConversationName.Type;
 
-export const Commit = Schema.Struct({ oid: Schema.String, message: Schema.String, time: Schema.Number });
+export const GenerationStatus = Schema.Literals(["building", "rejected", "ready", "live", "retired"]);
 
-export type Commit = typeof Commit.Type;
+export type GenerationStatus = typeof GenerationStatus.Type;
+
+export const Check = Schema.Struct({ name: Schema.String, ok: Schema.Boolean, detail: Schema.String, ms: Schema.Number });
+
+export type Check = typeof Check.Type;
+
+export const Generation = Schema.Struct({
+	id: Schema.Number,
+	parent: Schema.OptionFromNullOr(Schema.Number),
+	message: Schema.String,
+	status: GenerationStatus,
+	createdAt: Schema.Number,
+	files: Schema.Number,
+	checks: Schema.Array(Check),
+	boots: Schema.Number,
+	crashes: Schema.Number,
+	note: Schema.String,
+});
+
+export type Generation = typeof Generation.Type;
+
+export const BodyState = Schema.Struct({
+	files: Schema.Array(Schema.String),
+	generations: Schema.Array(Generation),
+	live: Schema.OptionFromNullOr(Schema.Number),
+	dirty: Schema.Boolean,
+});
+
+export type BodyState = typeof BodyState.Type;
+
+export const BodyStateJson = Schema.fromJsonString(Schema.toCodecJson(BodyState));
+
+export const ShipStatus = Schema.Literals(["live", "rejected", "unchanged"]);
+
+export const ShipReport = Schema.Struct({ generation: Schema.Number, status: ShipStatus, checks: Schema.Array(Check), reason: Schema.String });
+
+export type ShipReport = typeof ShipReport.Type;
+
+export const ShipReportJson = Schema.fromJsonString(Schema.toCodecJson(ShipReport));
 
 export const UserBlock = Schema.TaggedStruct("UserText", { text: Schema.String });
 
@@ -60,8 +98,7 @@ export const Snapshot = Schema.Struct({
 	busy: Schema.Boolean,
 	blocks: Schema.Array(Block),
 	live: Schema.OptionFromNullOr(Live),
-	files: Schema.Array(Schema.String),
-	commits: Schema.Array(Commit),
+	body: BodyState,
 	events: Schema.Array(TimelineEvent),
 	killedAt: Schema.OptionFromNullOr(Schema.Number),
 	filesError: Schema.OptionFromNullOr(Schema.String),
@@ -75,7 +112,7 @@ export const LiveFrame = Schema.TaggedStruct("Live", { live: Schema.OptionFromNu
 
 export const BlocksFrame = Schema.TaggedStruct("Blocks", { blocks: Schema.Array(Block) });
 
-export const FilesFrame = Schema.TaggedStruct("Files", { files: Schema.Array(Schema.String), commits: Schema.Array(Commit) });
+export const BodyFrame = Schema.TaggedStruct("Body", { body: BodyState });
 
 export const BusyFrame = Schema.TaggedStruct("Busy", { busy: Schema.Boolean });
 
@@ -85,7 +122,7 @@ export const EventsFrame = Schema.TaggedStruct("Events", { events: Schema.Array(
 
 export const RevivedFrame = Schema.TaggedStruct("Revived", { lives: Schema.Number });
 
-export const ServerFrame = Schema.Union([SnapshotFrame, LiveFrame, BlocksFrame, FilesFrame, BusyFrame, KilledFrame, RevivedFrame, EventsFrame]);
+export const ServerFrame = Schema.Union([SnapshotFrame, LiveFrame, BlocksFrame, BodyFrame, BusyFrame, KilledFrame, RevivedFrame, EventsFrame]);
 
 export type ServerFrame = typeof ServerFrame.Type;
 
@@ -113,6 +150,14 @@ const KillOutcome = Schema.Result(Schema.Void, Schema.Union([NothingRunning, Kil
 
 const ReadOutcome = Schema.Result(Schema.String, Schema.Union([FileNotFound, FilesUnavailable]));
 
+export class NoSuchGeneration extends Schema.TaggedError<NoSuchGeneration>()("NoSuchGeneration", { generation: Schema.Number }) {}
+
+export class GenerationRejected extends Schema.TaggedError<GenerationRejected>()("GenerationRejected", { generation: Schema.Number }) {}
+
+const RollbackOutcome = Schema.Result(Schema.Number, Schema.Union([NoSuchGeneration, GenerationRejected]));
+
+export const RollbackOutcomeJson = Schema.fromJsonString(Schema.toCodecJson(RollbackOutcome));
+
 const MAX_INPUT = 8000;
 
 const Input = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(MAX_INPUT));
@@ -124,13 +169,37 @@ export const AgentRpcs = RpcGroup.make(
 	Rpc.make("Send", { payload: { ...target, text: Input }, success: Accepted, error: Schema.Union([StillWorking, AgentUnavailable]) }),
 	Rpc.make("Kill", { payload: target, error: Schema.Union([NothingRunning, KillNotSaved, AgentUnavailable]) }),
 	Rpc.make("ReadFile", { payload: { ...target, path: Schema.String }, success: Schema.String, error: Schema.Union([FileNotFound, FilesUnavailable, AgentUnavailable]) }),
+	Rpc.make("Body", { success: BodyState, error: FilesUnavailable }),
+	Rpc.make("Rollback", { payload: { generation: Schema.Number }, success: Schema.Number, error: Schema.Union([NoSuchGeneration, GenerationRejected, FilesUnavailable]) }),
 );
 
 export type AgentRpcs = typeof AgentRpcs;
 
-export const RPC_PATH = "/api/rpc";
+export const KERNEL_PREFIX = "/_kernel";
 
-export const socketPath = (name: ConversationName) => `/api/c/${name}/ws`;
+export const RPC_PATH = `${KERNEL_PREFIX}/api/rpc`;
+
+export const socketPath = (name: ConversationName) => `${KERNEL_PREFIX}/api/c/${name}/ws`;
+
+export const BODY_SOCKET_PATH = `${KERNEL_PREFIX}/api/body/ws`;
+
+export const REPORT_PATH = `${KERNEL_PREFIX}/api/report`;
+
+export const PIN_COOKIE = "generation";
+
+export const BootReport = Schema.Struct({ generation: Schema.Number, ok: Schema.Boolean, detail: Schema.String });
+
+export type BootReport = typeof BootReport.Type;
+
+export const BootReportJson = Schema.fromJsonString(BootReport);
+
+export const BODY_HEALTH_PATH = "/_body/health";
+
+export const BODY_CHECKS_PATH = "/_body/checks";
+
+export const BodyChecks = Schema.Struct({ checks: Schema.Array(Check) });
+
+export const BodyChecksJson = Schema.fromJsonString(BodyChecks);
 
 export const SnapshotJson = Schema.fromJsonString(Schema.toCodecJson(Snapshot));
 
