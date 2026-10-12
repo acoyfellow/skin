@@ -1,22 +1,26 @@
 {
-  "state": "experimenting",
-  "iteration": 3,
+  "state": "deployed",
+  "iteration": 4,
   "northStar": "Every person who signs in gets their own app and agent. Asked for a change to their own code, it ships it live for that person only, without a redeploy, and no generated change can take their app down: 0 bricked apps across a frozen set of good and broken change requests, 0 changes visible to any other person, with a rollback receipt for every rejected or reverted generation.",
   "constraint": "Cloudflare only: Workers, Durable Objects, Worker Loader, Workers AI. The core is a PWA. Effect stays 4.0.0 (Foldkit peer).",
   "falsifiable": "A Worker can rebuild and swap its own Foldkit + Effect UI and server from source at runtime in under 30 s, and a broken generation is never promoted.",
-  "proven": [],
+  "proven": [
+    "Worker Loader and @cloudflare/worker-bundler run on the production account: skin.ax.cloudflare.dev builds each generation at runtime (receipts/e2e-deployed.json)",
+    "All 9 scenarios pass against the deployed Worker behind Access, in 63 s: three broken changes rejected, a good change live, a browser-start crash rolled back automatically (report delivered, 200), rollback, data survival (receipts/e2e-deployed.json, 2026-10-12T22:09Z)",
+    "Per-person isolation holds on the deployed Worker with two real Access service-token identities (receipts/e2e-deployed.json)"
+  ],
   "unproven": [
-    "Worker Loader and @cloudflare/worker-bundler run on the production account (proven locally only)",
-    "Per-person isolation holds on the deployed Worker with two real Access identities",
-    "The same 8 scenarios pass against the deployed Worker behind Access",
     "The agent survives ctx.abort() mid-ship and the ship still lands once (tardigrade proved this for writes; not re-run for ship)",
     "A real model (Workers AI) can make a requested change and ship it through the gate"
   ],
-  "disproven": [],
+  "disproven": [
+    "Crash reports sent with fetch keepalive reach the kernel behind Access: the first deployed run showed 0 crashes recorded for a crashing generation, so automatic rollback never fired. Fixed in 1b5df56 by sending a normal request, retrying once, and reloading only after delivery (first deployed receipt, commit ec99d7c)"
+  ],
   "observed": [
     "001 local workerd: runtime build of a Foldkit + Effect app takes 10.0-11.2 s over 4 runs; caching node_modules does not help; Tailwind v4 compiles in 8-10 ms; Loader isolate answers in about 45 ms (receipts/001-runtime-build.local.jsonl)",
     "e2e local (workerd, real Chromium): 8/8 scenarios in 87 s. Rejected: syntax error at bundle (84 ms), server throwing on start at boot, broken trim at checks (names the failing story). A page that crashes only in the browser passed the server gate, then the crash guard reported it on first load and the kernel rolled back to the last good generation. Rollback to the seed reset the draft; a note stored through STORE survived every generation (receipts/e2e-local.json)",
-    "e2e local: 9/9 in 100 s with two identities. Person B grew their own seed generation and saw none of A's 6 generations, files, or notes; A's app was unchanged; A and B resolved to different user ids (receipts/e2e-local.json)"
+    "e2e local: 9/9 in 100 s with two identities. Person B grew their own seed generation and saw none of A's 6 generations, files, or notes; A's app was unchanged; A and B resolved to different user ids (receipts/e2e-local.json)",
+    "Deployed run 1 (ec99d7c): 8/9, crash report lost behind Access. Deployed run 2 (b0f9c31): 9/9 in 63 s."
   ],
   "openQuestions": [
     "Client bundle is 869 KB: prebundle effect + foldkit as a vendor import map?",
