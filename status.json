@@ -1,22 +1,24 @@
 {
   "state": "experimenting",
-  "iteration": 1,
+  "iteration": 2,
   "northStar": "Asked for a change to its own code, planarian ships it live without a redeploy, and no generated change can take the running app down: 0 bricked deploys across a frozen set of good and deliberately broken change requests, with a rollback receipt for every rejected or reverted generation.",
   "constraint": "Cloudflare only: Workers, Durable Objects, Worker Loader, Workers AI. The core is a PWA. Effect stays 4.0.0 (Foldkit peer).",
   "falsifiable": "A Worker can rebuild and swap its own Foldkit + Effect UI and server from source at runtime in under 30 s, and a broken generation is never promoted.",
   "proven": [],
   "unproven": [
-    "Worker Loader and @cloudflare/worker-bundler run on the production account (001 passed locally only)",
-    "A broken generation (bundle, type, boot, or render failure) is never promoted",
-    "The running app can be rolled back to any earlier generation in under 1 s",
-    "The agent survives ctx.abort() mid-ship and the ship still lands once"
+    "Worker Loader and @cloudflare/worker-bundler run on the production account (proven locally only)",
+    "The same 8 scenarios pass against the deployed Worker behind Access",
+    "The agent survives ctx.abort() mid-ship and the ship still lands once (tardigrade proved this for writes; not re-run for ship)",
+    "A real model (Workers AI) can make a requested change and ship it through the gate"
   ],
   "disproven": [],
   "observed": [
-    "001 local workerd: runtime build of a Foldkit + Effect app takes 10.0-11.2 s over 4 runs; caching node_modules does not help; Tailwind v4 compiles in 8-10 ms; Loader isolate answers in about 45 ms (receipts/001-runtime-build.local.jsonl)"
+    "001 local workerd: runtime build of a Foldkit + Effect app takes 10.0-11.2 s over 4 runs; caching node_modules does not help; Tailwind v4 compiles in 8-10 ms; Loader isolate answers in about 45 ms (receipts/001-runtime-build.local.jsonl)",
+    "e2e local (workerd, real Chromium): 8/8 scenarios in 87 s. Rejected: syntax error at bundle (84 ms), server throwing on start at boot, broken trim at checks (names the failing story). A page that crashes only in the browser passed the server gate, then the crash guard reported it on first load and the kernel rolled back to the last good generation. Rollback to the seed reset the draft; a note stored through STORE survived every generation (receipts/e2e-local.json)"
   ],
   "openQuestions": [
-    "Client bundle is 720 KB minified: prebundle effect + foldkit as a vendor import map?",
-    "Hostname and Access application for the deployed app"
+    "Client bundle is 869 KB: prebundle effect + foldkit as a vendor import map?",
+    "Typecheck is not part of the gate yet: worker-bundler/typescript can run it in the isolate, at an unmeasured cost",
+    "A crash after start (not at start) is reported but not rolled back automatically, by design"
   ]
 }

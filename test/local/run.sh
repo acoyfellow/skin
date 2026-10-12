@@ -3,6 +3,7 @@ set -u
 cd "$(dirname "$0")/../.."
 PORT=${PORT:-8790}
 node scripts/seed.mjs >/dev/null
+bash test/local/stop.sh
 rm -rf test/local/.state
 npx wrangler dev -c test/local/wrangler.jsonc --port "$PORT" --persist-to test/local/.state > test/local/dev.log 2>&1 &
 echo $! > test/local/dev.pid

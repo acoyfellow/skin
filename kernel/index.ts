@@ -152,6 +152,20 @@ const CONSOLE_BODY = `${KERNEL_PREFIX}/api/body`;
 
 const CONSOLE_RESEED = `${KERNEL_PREFIX}/api/reseed`;
 
+const OWNER_SHIP = `${KERNEL_PREFIX}/api/ship`;
+
+const OWNER_FILE = /^\/_kernel\/api\/files\/(.+)$/;
+
+const MAX_MESSAGE = 500;
+
+const ownerShip = async (request: Request, env: Env): Promise<Response> => {
+	const message = (await request.text()).trim().slice(0, MAX_MESSAGE);
+
+	return bodyOf(env)
+		.ship(message === "" ? "Shipped by the owner" : message)
+		.then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
+};
+
 const CONSOLE_ROLLBACK = /^\/_kernel\/api\/rollback\/(\d+)$/;
 
 const report = async (request: Request, env: Env): Promise<Response> => {
@@ -217,6 +231,25 @@ export default {
 		if (pathname === CONSOLE_BODY && request.method === "GET") return bodyOf(env).state().then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
 
 		if (pathname === CONSOLE_RESEED && request.method === "POST") return bodyOf(env).reseed().then((text) => new Response(text));
+
+		if (pathname === OWNER_SHIP && request.method === "POST") return ownerShip(request, env);
+
+		const fileMatch = OWNER_FILE.exec(pathname);
+
+		if (fileMatch?.[1] !== undefined && request.method === "PUT") {
+			const path = decodeURIComponent(fileMatch[1]);
+			const content = await request.text();
+
+			return bodyOf(env).write(path, content).then((text) => new Response(text, { status: text.startsWith("Refused") ? 400 : 200 }));
+		}
+
+		if (fileMatch?.[1] !== undefined && request.method === "DELETE") return bodyOf(env).remove(decodeURIComponent(fileMatch[1])).then((text) => new Response(text));
+
+		if (fileMatch?.[1] !== undefined && request.method === "GET") {
+			const content = await bodyOf(env).read(decodeURIComponent(fileMatch[1]));
+
+			return content === null ? refuse(404, "no such file") : new Response(content, { headers: { "content-type": "text/plain; charset=utf-8" } });
+		}
 
 		const rollbackMatch = CONSOLE_ROLLBACK.exec(pathname);
 
