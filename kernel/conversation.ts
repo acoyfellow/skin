@@ -48,7 +48,7 @@ export type Conversation = {
 	readonly keepAlive: Effect.Effect<void>;
 };
 
-export class ConversationAgent extends Context.Service<ConversationAgent, Conversation>()("planarian/ConversationAgent") {
+export class ConversationAgent extends Context.Service<ConversationAgent, Conversation>()("skin/ConversationAgent") {
 	static readonly layer = Layer.effect(
 			ConversationAgent,
 			Effect.gen(function* () {

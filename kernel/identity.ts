@@ -12,7 +12,7 @@ const OWNER_SEPARATOR = "~";
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
 export const userIdOf = (subject: string): Effect.Effect<UserId> =>
-	Effect.promise(() => crypto.subtle.digest("SHA-256", new TextEncoder().encode(`planarian:${subject}`))).pipe(Effect.map((digest) => UserId.make(`u${hex(digest).slice(0, 20)}`)));
+	Effect.promise(() => crypto.subtle.digest("SHA-256", new TextEncoder().encode(`skin:${subject}`))).pipe(Effect.map((digest) => UserId.make(`u${hex(digest).slice(0, 20)}`)));
 
 export const agentName = (user: UserId, conversation: ConversationName): string => `${user}${OWNER_SEPARATOR}${conversation}`;
 

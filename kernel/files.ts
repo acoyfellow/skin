@@ -49,6 +49,6 @@ export const bodyFiles = (body: () => BodyStub): RepoFiles => ({
 	state: call(() => body().state()).pipe(Effect.flatMap((json) => Effect.mapError(decodeState(json), unreadable))),
 });
 
-export class Repo extends Context.Service<Repo, RepoFiles>()("planarian/Repo") {
+export class Repo extends Context.Service<Repo, RepoFiles>()("skin/Repo") {
 	static readonly layer = (namespace: DurableObjectNamespace<Body>, user: UserId) => Layer.succeed(Repo, bodyFiles(() => namespace.getByName(user)));
 }

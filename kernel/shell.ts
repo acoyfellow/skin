@@ -101,7 +101,7 @@ export const GUARD = `(() => {
 })();
 `;
 
-export const SERVICE_WORKER = `const CACHE = "planarian-shell-v1";
+export const SERVICE_WORKER = `const CACHE = "skin-shell-v1";
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -132,8 +132,8 @@ self.addEventListener("fetch", (event) => {
 `;
 
 export const MANIFEST = JSON.stringify({
-	name: "planarian",
-	short_name: "planarian",
+	name: "skin",
+	short_name: "skin",
 	description: "An app that rewrites its own code while you use it.",
 	start_url: "/",
 	scope: "/",
@@ -153,7 +153,7 @@ export const CONSOLE = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>planarian kernel console</title>
+<title>skin kernel console</title>
 <link rel="icon" href="${KERNEL_PREFIX}/icon.svg" type="image/svg+xml">
 <style>
 body{font:14px/1.5 system-ui,sans-serif;margin:0 auto;max-width:860px;padding:24px;color:#171717}

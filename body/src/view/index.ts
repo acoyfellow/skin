@@ -39,7 +39,7 @@ const header = (h: H, model: Model): Html => {
 		[h.Class("flex h-14 items-center gap-3 border-b border-line px-5")],
 		[
 			h.img([h.Src("/_kernel/icon.svg"), h.Alt(""), h.Width("26"), h.Height("26"), h.Class("rounded-md")]),
-			h.h1([h.Class("text-[15px] font-semibold tracking-[-0.01em]")], ["planarian"]),
+			h.h1([h.Class("text-[15px] font-semibold tracking-[-0.01em]")], ["skin"]),
 			divider(h),
 			h.span([h.Class("hidden truncate font-mono text-[12px] text-faint sm:inline")], [model.name]),
 			h.div(
@@ -123,7 +123,7 @@ const composer = (h: H, model: Model): Html =>
 	);
 
 export const view = (model: Model, h: H): Document => ({
-	title: model.busy ? "planarian · working" : "planarian",
+	title: model.busy ? "skin · working" : "skin",
 	body: h.div(
 		[h.Class("grid h-full grid-rows-[auto_1fr]")],
 		[

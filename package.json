@@ -1,5 +1,5 @@
 {
-  "name": "planarian",
+  "name": "skin",
   "version": "0.0.1",
   "description": "An app that rewrites its own code while you use it, and can't brick itself.",
   "private": true,
@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/acoyfellow/planarian.git"
+    "url": "git+https://github.com/acoyfellow/skin.git"
   },
   "engines": {
     "node": ">=22.19.0"

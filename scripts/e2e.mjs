@@ -186,8 +186,8 @@ await scenario("data the server stores survives a new generation and a rollback"
 });
 
 await scenario("a good change goes live and renders in the browser", "ship live; / serves the new generation; the page shows the change", async () => {
-	const marker = `planarian ${NONCE}`;
-	const changed = original["src/view/index.ts"].replace('["planarian"]', JSON.stringify([marker]));
+	const marker = `skin ${NONCE}`;
+	const changed = original["src/view/index.ts"].replace('["skin"]', JSON.stringify([marker]));
 
 	if (changed === original["src/view/index.ts"]) throw new Error("could not find the title in src/view/index.ts");
 

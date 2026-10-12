@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
-	"name": "planarian",
+	"name": "skin",
 	"main": "kernel/index.ts",
 	// Private by default: anyone with a public URL could rewrite the app and spend your Workers AI budget. See README, Deploy.
 	"workers_dev": false,

@@ -1,14 +1,14 @@
 <img src="kernel/icon.svg" width="72" align="right" alt="">
 
-# planarian
+# skin
 
 **A web app that every person who signs in grows into their own: each account gets its own agent, which rewrites that person's copy of the app while they use it, and can't brick it. A reference for [Pi Durable](https://github.com/earendil-works/pi/tree/main/packages/durable), [Worker Loader](https://developers.cloudflare.com/workers/runtime-apis/bindings/worker-loader/), [Effect v4](https://effect.website), and [Foldkit](https://foldkit.dev) on Cloudflare.**
 
-Self-modifying agents like [bb](https://getbb.app) and [Ouroboros](https://github.com/razzant/ouroboros) evolve one repository on one machine: the tool itself. planarian evolves per person. It is a web app behind a login; whoever has access signs in and gets their own body and their own agent, and every change that agent makes lands only in that person's app. Everyone starts from the same seed and grows apart.
+Self-modifying agents like [bb](https://getbb.app) and [Ouroboros](https://github.com/razzant/ouroboros) evolve one repository on one machine: the tool itself. skin evolves per person. It is a web app behind a login; whoever has access signs in and gets their own body and their own agent, and every change that agent makes lands only in that person's app. Everyone starts from the same seed and grows apart.
 
-Self-modifying tools let an agent change the app you are working in. The catch is the failure mode: one bad change and the tool you need to fix it is the thing that's broken. planarian splits itself in two. A small **kernel**, deployed once, holds the agent, the generations, and the gate. Everything else, the **body**, is source the agent edits at runtime: the Foldkit UI (including the chat you talk to it through), the server, the styles, and the checks. A change goes live only after the kernel builds it into a new generation inside Cloudflare and it passes the gate. If a generation still crashes in your browser, the kernel rolls it back on its own.
+Self-modifying tools let an agent change the app you are working in. The catch is the failure mode: one bad change and the tool you need to fix it is the thing that's broken. skin splits itself in two. A small **kernel**, deployed once, holds the agent, the generations, and the gate. Everything else, the **body**, is source the agent edits at runtime: the Foldkit UI (including the chat you talk to it through), the server, the styles, and the checks. A change goes live only after the kernel builds it into a new generation inside Cloudflare and it passes the gate. If a generation still crashes in your browser, the kernel rolls it back on its own.
 
-A planarian cut in pieces regrows the whole worm from each piece, head included.
+Skin is the part of you that is yours alone, that you can change, and that grows back. Here it is the whole app, not just its look: your agent rewrites the UI, the server, and the chat itself.
 
 ## What happens when you ask for a change
 
@@ -69,12 +69,12 @@ BASE=http://localhost:8790 npm run e2e
 
 ## Deploy behind Cloudflare Access
 
-planarian is locked by default: every request must carry a Cloudflare Access token, which the Worker verifies itself, and there is no `workers.dev` or preview URL. Worker Loader must be enabled on the account.
+skin is locked by default: every request must carry a Cloudflare Access token, which the Worker verifies itself, and there is no `workers.dev` or preview URL. Worker Loader must be enabled on the account.
 
-1. Add your hostname to `wrangler.jsonc`: `"routes": [{ "pattern": "planarian.example.com", "custom_domain": true }]`.
+1. Add your hostname to `wrangler.jsonc`: `"routes": [{ "pattern": "skin.example.com", "custom_domain": true }]`.
 2. Create a self-hosted Access application for it with one Allow policy for your email. For CI, add a Service Auth policy and a service token.
 3. Set `vars.ACCESS_AUD` to the application's AUD tag and `vars.ACCESS_TEAM_DOMAIN` to `https://<team>.cloudflareaccess.com`.
-4. `npm run deploy`, then `BASE=https://planarian.example.com CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… npm run e2e`.
+4. `npm run deploy`, then `BASE=https://skin.example.com CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… npm run e2e`.
 
 ## What it deliberately does not do
 

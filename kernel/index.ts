@@ -192,7 +192,7 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 const isLocalDev = (request: Request, env: Env): boolean => env.LOCAL_DEV_WITHOUT_ACCESS === "1" && LOCAL_HOSTS.has(new URL(request.url).hostname);
 
-const NOT_CONFIGURED = "planarian is locked: set ACCESS_TEAM_DOMAIN and ACCESS_AUD and put the hostname behind Cloudflare Access. See README, Deploy.";
+const NOT_CONFIGURED = "skin is locked: set ACCESS_TEAM_DOMAIN and ACCESS_AUD and put the hostname behind Cloudflare Access. See README, Deploy.";
 
 type Admission = { readonly _tag: "Admitted"; readonly person: Person } | { readonly _tag: "Refused"; readonly response: Response };
 

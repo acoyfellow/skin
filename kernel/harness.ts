@@ -16,7 +16,7 @@ const CONTEXT = BACKGROUND_CONTEXT;
 const HISTORY_LIMIT = 500;
 
 const PROMPT = [
-	"You are planarian: an app that rewrites its own code while the owner uses it.",
+	"You are skin: an app that rewrites its own code while the owner uses it.",
 	"Your body is the app itself: its Foldkit client, its server, its styles, and its checks, including the chat you are speaking through.",
 	"Start by reading AGENTS.md with read_file. It explains the layout and the rules.",
 	"write_file and delete_file change the draft only. ship builds the draft, runs the gate, and makes it live only if every check passes. If ship rejects it, read the errors, fix the files, and ship again.",
@@ -107,11 +107,11 @@ type Agentic = {
 
 type ModelChoice = { readonly provider: Provider; readonly modelId: string; readonly options: CreateModelsOptions };
 
-export class Model extends Context.Service<Model, ModelChoice>()("planarian/Model") {
+export class Model extends Context.Service<Model, ModelChoice>()("skin/Model") {
 	static readonly workersAI = (modelId: string) => Layer.succeed(Model, { provider: cloudflareWorkersAIProvider(), modelId, options: { authContext: bindingAuthContext } });
 }
 
-export class Pi extends Context.Service<Pi, Agentic>()("planarian/Pi") {
+export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {
 	static readonly layer = (storage: DurableObjectStorage) =>
 		Layer.effect(
 			Pi,
@@ -132,7 +132,7 @@ export class Pi extends Context.Service<Pi, Agentic>()("planarian/Pi") {
 
 				const registry = createRegistry();
 
-				registry.install(defineExtension({ name: "planarian", sections: [section("preamble", () => PROMPT, { tag: false })], tools: tools(repo, bodyChanged, yield* Effect.context<never>()) }));
+				registry.install(defineExtension({ name: "skin", sections: [section("preamble", () => PROMPT, { tag: false })], tools: tools(repo, bodyChanged, yield* Effect.context<never>()) }));
 
 				const harness = yield* Effect.acquireRelease(
 					pi("open", async () => Harness.open(await openDurableObjectSqliteStorage(storage), { models, registry }, CONTEXT)),

@@ -1,5 +1,5 @@
 {
-	"name": "planarian-local",
+	"name": "skin-local",
 	"main": "../../kernel/index.ts",
 	"workers_dev": false,
 	"preview_urls": false,
