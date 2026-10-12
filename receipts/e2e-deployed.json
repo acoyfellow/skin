@@ -1,0 +1,132 @@
+{
+  "target": "deployed",
+  "base": "(deployed, behind Access)",
+  "at": "2026-10-12T22:01:36.793Z",
+  "nonce": "31tgyu",
+  "passed": 8,
+  "total": 9,
+  "ms": 121782,
+  "results": [
+    {
+      "name": "the seed grows into a live generation that starts in a real browser",
+      "expected": "a live generation; the guard reports ok",
+      "observed": {
+        "live": 1,
+        "generation": 1,
+        "report": {
+          "generation": 1,
+          "ok": true,
+          "detail": "rendered"
+        },
+        "errors": []
+      },
+      "pass": true,
+      "ms": 18423
+    },
+    {
+      "name": "a change that does not bundle is rejected and the live app is untouched",
+      "expected": "ship rejected at bundle; / still serves the same generation",
+      "observed": {
+        "generation": 2,
+        "failedCheck": "bundle",
+        "detail": "Build failed with 1 error:",
+        "served": 1
+      },
+      "pass": true,
+      "ms": 2815
+    },
+    {
+      "name": "a server that throws when it starts is rejected",
+      "expected": "ship rejected at boot",
+      "observed": {
+        "generation": 3,
+        "failedCheck": "boot",
+        "detail": "GET /_body/health threw: Error: e2e 31tgyu: the server refuses to start",
+        "live": 1
+      },
+      "pass": true,
+      "ms": 13349
+    },
+    {
+      "name": "a change that breaks a behavior the checks cover is rejected",
+      "expected": "ship rejected at checks, naming the failing story",
+      "observed": {
+        "generation": 4,
+        "failedCheck": "checks",
+        "failing": [
+          "FAIL sending > an example sends the task, shows it at once, and puts the name in the URL: expected [{\"_tag\":\"UserText\",\"text\":\"Build a page\"}], got [{\"_tag\":\"UserText\",\"text\":\"  Build a page  \"}]"
+        ],
+        "live": 1
+      },
+      "pass": true,
+      "ms": 11957
+    },
+    {
+      "name": "data the server stores survives a new generation and a rollback",
+      "expected": "a note written now is still there at the end",
+      "observed": {
+        "status": 201
+      },
+      "pass": true,
+      "ms": 506
+    },
+    {
+      "name": "a good change goes live and renders in the browser",
+      "expected": "ship live; / serves the new generation; the page shows the change",
+      "observed": {
+        "generation": 5,
+        "served": 5,
+        "checks": [
+          "bundle:true:1204ms",
+          "boot:true:139ms",
+          "checks:true:0ms",
+          "page:true:0ms"
+        ],
+        "report": {
+          "generation": 5,
+          "ok": true,
+          "detail": "rendered"
+        }
+      },
+      "pass": true,
+      "ms": 20149
+    },
+    {
+      "name": "a page that crashes in the browser is rolled back by the kernel on its own",
+      "expected": "ship live (the server gate cannot see it); the first browser load reports a crash; live returns to the last good generation",
+      "observed": "timed out after 20000 ms waiting for the kernel to roll back",
+      "pass": false,
+      "ms": 38476
+    },
+    {
+      "name": "rolling back makes the seed live again and resets the draft to match",
+      "expected": "live is the seed; / serves it; the draft has the original title; the note is still there",
+      "observed": {
+        "live": 1,
+        "served": 1,
+        "notes": 1
+      },
+      "pass": true,
+      "ms": 1191
+    },
+    {
+      "name": "another person gets their own app, untouched by everything above",
+      "expected": "B grows their own first generation from the seed; B sees none of A's generations, files, or notes; A is unchanged",
+      "observed": {
+        "a": {
+          "user": "ueb4c6186d54bf7fb206b",
+          "generations": 6,
+          "live": 1
+        },
+        "b": {
+          "user": "uf10b131f92e417b22fc2",
+          "generations": 1,
+          "live": 1,
+          "notes": 0
+        }
+      },
+      "pass": true,
+      "ms": 13213
+    }
+  ]
+}
