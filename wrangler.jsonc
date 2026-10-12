@@ -1,67 +1,34 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
-	"name": "tardigrade",
-	"main": "worker/index.ts",
-	// Private by default: anyone with a public URL could spend your Workers AI budget. See README, Deploy.
+	"name": "planarian",
+	"main": "kernel/index.ts",
+	// Private by default: anyone with a public URL could rewrite the app and spend your Workers AI budget. See README, Deploy.
 	"workers_dev": false,
 	"preview_urls": false,
 	"compatibility_date": "2026-09-01",
-	"compatibility_flags": [
-		"nodejs_compat",
-		"nodejs_compat_populate_process_env"
-	],
+	"compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env", "enable_ctx_exports"],
 	// MODEL is any Workers AI model with function calling.
 	"vars": {
 		"MODEL": "@cf/zai-org/glm-5.3",
 		"ACCESS_TEAM_DOMAIN": "",
 		"ACCESS_AUD": ""
 	},
-	// Workers AI and Artifacts have no local simulator: `wrangler dev` calls the real services.
 	"ai": {
 		"binding": "AI",
 		"remote": true
 	},
-	"artifacts": [
-		{
-			"binding": "ARTIFACTS",
-			"namespace": "default",
-			"remote": true
-		}
-	],
-	"assets": {
-		"directory": "./client/dist",
-		"binding": "ASSETS",
-		"not_found_handling": "single-page-application",
-		"run_worker_first": true
-	},
+	"worker_loaders": [{ "binding": "LOADER" }],
+	"rules": [{ "type": "Text", "globs": ["**/*.css"], "fallthrough": true }],
 	"durable_objects": {
 		"bindings": [
-			{
-				"name": "AGENT",
-				"class_name": "Agent"
-			}
+			{ "name": "AGENT", "class_name": "Agent" },
+			{ "name": "BODY", "class_name": "Body" },
+			{ "name": "BUILDER", "class_name": "Builder" }
 		]
 	},
-	"migrations": [
-		{
-			"tag": "v1",
-			"new_sqlite_classes": [
-				"Conformance"
-			]
-		},
-		{
-			"tag": "v2",
-			"new_sqlite_classes": [
-				"Agent"
-			]
-		},
-		{
-			"tag": "v3",
-			"deleted_classes": [
-				"Conformance"
-			]
-		}
-	],
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Agent", "Body", "Builder"] }],
+	// Building a generation bundles Effect and Foldkit with esbuild-wasm, which takes about 10 s of CPU.
+	"limits": { "cpu_ms": 300000 },
 	"observability": {
 		"enabled": true
 	}

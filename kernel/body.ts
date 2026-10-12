@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Result, Schema } from "effect";
 import {
 	BODY_CHECKS_PATH,
 	BODY_HEALTH_PATH,
@@ -9,7 +9,9 @@ import {
 	BodyStateJson,
 	type Check,
 	type Generation,
+	GenerationRejected,
 	GenerationStatus,
+	NoSuchGeneration,
 	PIN_COOKIE,
 	RollbackOutcomeJson,
 	ServerFrameJson,
@@ -387,7 +389,7 @@ export class Body extends DurableObject<BodyEnv> {
 	}
 
 	private buildAndGate(id: number, files: ReadonlyMap<string, string>): Effect.Effect<ShipReport> {
-		return Effect.gen(this, function* () {
+		return Effect.gen({ self: this }, function* () {
 			const started = Date.now();
 			const outcome = yield* this.callBuilder(files, id);
 
@@ -496,15 +498,15 @@ export class Body extends DurableObject<BodyEnv> {
 
 	rollback(id: number): string {
 		return Option.match(this.generation(id), {
-			onNone: () => encodeRollback({ _tag: "Failure", failure: { _tag: "NoSuchGeneration", generation: id } }),
+			onNone: () => encodeRollback(Result.fail(new NoSuchGeneration({ generation: id }))),
 			onSome: (row) => {
-				if (!passedGate(row.status)) return encodeRollback({ _tag: "Failure", failure: { _tag: "GenerationRejected", generation: id } });
+				if (!passedGate(row.status)) return encodeRollback(Result.fail(new GenerationRejected({ generation: id })));
 
 				this.promote(id);
 				this.replaceDraft(Object.fromEntries(Object.entries(decodeTree(row.tree)).map(([path, hash]) => [path, this.blob(hash)])));
 				this.notify();
 
-				return encodeRollback({ _tag: "Success", success: id });
+				return encodeRollback(Result.succeed(id));
 			},
 		});
 	}

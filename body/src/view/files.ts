@@ -110,13 +110,13 @@ export const filesPanel = (h: H, model: Model): Html => {
 	return h.aside(
 		[
 			h.Class(
-				`${model.body.filesPanelOpen ? "fixed inset-0 top-14 z-10 block" : "hidden"} overflow-y-auto border-l border-line bg-panel md:static md:block`,
+				`${model.filesPanelOpen ? "fixed inset-0 top-14 z-10 block" : "hidden"} overflow-y-auto border-l border-line bg-panel md:static md:block`,
 			),
 			h.AriaLabel("Source and generations"),
 		],
 		[
 			heading(h, "Source", String(model.body.files.length)),
-			...Option.match(model.body.filesError, { onNone: () => [], onSome: (reason) => [h.p([h.Id("files-error"), h.Class("px-4 py-2 text-[13px] text-bad")], [reason])] }),
+			...Option.match(model.filesError, { onNone: () => [], onSome: (reason) => [h.p([h.Id("files-error"), h.Class("px-4 py-2 text-[13px] text-bad")], [reason])] }),
 			...Option.match(writing, { onNone: () => [], onSome: (block) => [liveFile(h, block)] }),
 			...(Arr.isReadonlyArrayEmpty(model.body.files) ? (Option.isNone(writing) ? [none(h, "No files yet.")] : []) : model.body.files.flatMap((path) => fileRow(h, model, path))),
 			heading(h, "Generations", Option.match(model.body.live, { onNone: () => "none live", onSome: (live) => `#${live} is live${model.body.dirty ? ", draft has changes" : ""}` })),

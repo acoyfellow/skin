@@ -5,6 +5,7 @@
 		"module": "esnext",
 		"moduleResolution": "bundler",
 		"types": ["@cloudflare/workers-types"],
+		"resolveJsonModule": true,
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"exactOptionalPropertyTypes": true,
@@ -14,5 +15,5 @@
 		"skipLibCheck": true,
 		"noEmit": true
 	},
-	"include": ["shared", "worker", "test", "client/src", "client/vite.config.ts", "oxlint.config.ts", "vitest.config.ts"]
+	"include": ["shared", "kernel", "test", "oxlint.config.ts", "vitest.config.ts"]
 }

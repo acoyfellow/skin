@@ -42,7 +42,7 @@ export const Rollback = Command.define("Rollback", {
 			const live = yield* client.Rollback({ generation });
 
 			return Message.SucceededRollback({ generation: live });
-		}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedRollback({ reason: "message" in error ? String(error.message) : error._tag })))),
+		}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedRollback({ reason: error.message === "" ? error._tag : error.message })))),
 });
 
 export const LoadFile = Command.define("LoadFile", {
