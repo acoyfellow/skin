@@ -1,0 +1,59 @@
+{
+	"name": "planarian-local",
+	"main": "../../kernel/index.ts",
+	"workers_dev": false,
+	"preview_urls": false,
+	"compatibility_date": "2026-09-01",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"nodejs_compat_populate_process_env",
+		"enable_ctx_exports"
+	],
+	"vars": {
+		"MODEL": "@cf/zai-org/glm-5.3",
+		"LOCAL_DEV_WITHOUT_ACCESS": "1"
+	},
+	"worker_loaders": [
+		{
+			"binding": "LOADER"
+		}
+	],
+	"rules": [
+		{
+			"type": "Text",
+			"globs": [
+				"**/*.css"
+			],
+			"fallthrough": true
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "AGENT",
+				"class_name": "Agent"
+			},
+			{
+				"name": "BODY",
+				"class_name": "Body"
+			},
+			{
+				"name": "BUILDER",
+				"class_name": "Builder"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"Agent",
+				"Body",
+				"Builder"
+			]
+		}
+	],
+	"limits": {
+		"cpu_ms": 300000
+	}
+}

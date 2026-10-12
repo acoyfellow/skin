@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Option, Result, Schema } from "effect";
+import { Effect, Option, Predicate, Result, Schema } from "effect";
 import {
 	BODY_CHECKS_PATH,
 	BODY_HEALTH_PATH,
@@ -163,13 +163,16 @@ const pinnedGeneration = (request: Request): Option.Option<number> => {
 
 const GROWING_PAGE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Growing</title><meta http-equiv="refresh" content="3"><body style="font:15px system-ui;display:grid;place-items:center;height:100vh;margin:0;color:#4d4d4d"><p>The first generation is growing. This page reloads on its own.</p>`;
 
+const failureDetail = (failure: unknown): string =>
+	Predicate.hasProperty(failure, "detail") ? String(failure.detail) : Predicate.isTagged(failure, "TimeoutError") ? `timed out after ${CHECK_TIMEOUT_MS} ms` : String(failure);
+
 const timed = <A, E>(name: string, effect: Effect.Effect<A, E>, describe: (value: A) => { readonly ok: boolean; readonly detail: string }) =>
 	Effect.gen(function* () {
 		const started = Date.now();
 		const outcome = yield* Effect.result(effect.pipe(Effect.timeout(CHECK_TIMEOUT_MS)));
 		const ms = Date.now() - started;
 
-		return outcome._tag === "Success" ? { name, ms, ...describe(outcome.success) } : { name, ms, ok: false, detail: String(outcome.failure) };
+		return outcome._tag === "Success" ? { name, ms, ...describe(outcome.success) } : { name, ms, ok: false, detail: failureDetail(outcome.failure) };
 	});
 
 class CheckFailed extends Schema.TaggedError<CheckFailed>()("CheckFailed", { detail: Schema.String }) {}
