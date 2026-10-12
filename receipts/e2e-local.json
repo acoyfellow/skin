@@ -1,11 +1,11 @@
 {
   "target": "local",
   "base": "http://localhost:8790",
-  "at": "2026-10-12T22:07:14.694Z",
-  "nonce": "tuf56i",
-  "passed": 9,
-  "total": 9,
-  "ms": 102936,
+  "at": "2026-10-12T23:37:19.671Z",
+  "nonce": "7zxg2y",
+  "passed": 10,
+  "total": 10,
+  "ms": 140747,
   "results": [
     {
       "name": "the seed grows into a live generation that starts in a real browser",
@@ -21,7 +21,7 @@
         "errors": []
       },
       "pass": true,
-      "ms": 23416
+      "ms": 23343
     },
     {
       "name": "a change that does not bundle is rejected and the live app is untouched",
@@ -33,7 +33,7 @@
         "served": 1
       },
       "pass": true,
-      "ms": 84
+      "ms": 80
     },
     {
       "name": "a server that throws when it starts is rejected",
@@ -45,7 +45,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 14110
+      "ms": 15116
     },
     {
       "name": "a change that breaks a behavior the checks cover is rejected",
@@ -59,7 +59,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 14343
+      "ms": 14147
     },
     {
       "name": "data the server stores survives a new generation and a rollback",
@@ -68,48 +68,61 @@
         "status": 201
       },
       "pass": true,
-      "ms": 10
+      "ms": 9
+    },
+    {
+      "name": "a version interrupted mid-build by a kill never sticks, and shipping again makes it live",
+      "expected": "abort the Body while it builds; the half-built version is marked interrupted, nothing half-built goes live, and the same ship succeeds on retry",
+      "observed": {
+        "aborted": "aborted: Error: aborted by the local e2e",
+        "cutShip": 500,
+        "interrupted": 5,
+        "retry": 6,
+        "restored": "live"
+      },
+      "pass": true,
+      "ms": 37628
     },
     {
       "name": "a good change goes live and renders in the browser",
       "expected": "ship live; / serves the new generation; the page shows the change",
       "observed": {
-        "generation": 5,
-        "served": 5,
+        "generation": 8,
+        "served": 8,
         "checks": [
-          "bundle:true:13738ms",
-          "boot:true:172ms",
-          "checks:true:16ms",
+          "bundle:true:13677ms",
+          "boot:true:137ms",
+          "checks:true:12ms",
           "page:true:0ms"
         ],
         "report": {
-          "generation": 5,
+          "generation": 8,
           "ok": true,
           "detail": "rendered"
         }
       },
       "pass": true,
-      "ms": 20531
+      "ms": 20425
     },
     {
       "name": "a page that crashes in the browser is rolled back by the kernel on its own",
       "expected": "ship live (the server gate cannot see it); the first browser load reports a crash; live returns to the last good generation",
       "observed": {
-        "crashed": 6,
+        "crashed": 9,
         "report": {
-          "generation": 6,
+          "generation": 9,
           "ok": false,
-          "detail": "Uncaught Error: e2e tuf56i: the page crashes on start"
+          "detail": "Uncaught Error: e2e 7zxg2y: the page crashes on start"
         },
         "delivered": [
           200
         ],
-        "liveAfter": 5,
+        "liveAfter": 8,
         "status": "rejected",
-        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 5: Uncaught Error: e2e tuf56i: the page crashes on start"
+        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 8: Uncaught Error: e2e 7zxg2y: the page crashes on start"
       },
       "pass": true,
-      "ms": 16085
+      "ms": 15767
     },
     {
       "name": "rolling back makes the seed live again and resets the draft to match",
@@ -120,26 +133,26 @@
         "notes": 1
       },
       "pass": true,
-      "ms": 58
+      "ms": 42
     },
     {
       "name": "another person gets their own app, untouched by everything above",
       "expected": "B grows their own first generation from the seed; B sees none of A's generations, files, or notes; A is unchanged",
       "observed": {
         "a": {
-          "user": "u92809db0105ec4ac5fcb",
-          "generations": 6,
+          "user": "ufe623ff6ee3ebe31abc5",
+          "generations": 9,
           "live": 1
         },
         "b": {
-          "user": "uaeb2f36d3e9267a81da6",
+          "user": "ue5e696a2c5473ce46b4e",
           "generations": 1,
           "live": 1,
           "notes": 0
         }
       },
       "pass": true,
-      "ms": 14039
+      "ms": 14050
     }
   ]
 }

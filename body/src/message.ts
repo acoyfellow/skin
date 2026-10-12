@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
-import { ServerFrame } from "./kernel/protocol";
+import { ConversationSummary, ServerFrame } from "./kernel/protocol";
 
 export const Message = defineMessageUnion({
 	ReceivedFrame: { frame: ServerFrame },
@@ -19,6 +19,13 @@ export const Message = defineMessageUnion({
 	Ticked: { now: Schema.Number },
 	CompletedNavigation: {},
 	ClickedRollback: { generation: Schema.Number },
+	LoadedConversations: { conversations: Schema.Array(ConversationSummary) },
+	ClickedConversation: { name: Schema.String },
+	ClickedDeleteConversation: { name: Schema.String },
+	DeletedConversation: { name: Schema.String },
+	FailedConversations: { reason: Schema.String },
+	ClickedResetApp: {},
+	FinishedResetApp: { note: Schema.String },
 	SucceededRollback: { generation: Schema.Number },
 	FailedRollback: { reason: Schema.String },
 });

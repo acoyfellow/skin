@@ -3,6 +3,7 @@ import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message";
 import { type Model, Phase } from "../model";
 import { activityRow, elapsedSeconds } from "./activity";
+import { chatsPanel } from "./chats";
 import { filesPanel } from "./files";
 import { transcript } from "./transcript";
 
@@ -36,10 +37,8 @@ const header = (h: H, model: Model): Html => {
 	return h.header(
 		[h.Class("flex h-14 items-center gap-3 border-b border-line px-5")],
 		[
-			h.img([h.Src("/_kernel/icon.svg"), h.Alt(""), h.Width("26"), h.Height("26"), h.Class("rounded-md")]),
+			h.img([h.Src("/_kernel/icon.png"), h.Alt(""), h.Width("26"), h.Height("26"), h.Class("rounded-md")]),
 			h.h1([h.Class("text-[15px] font-semibold tracking-[-0.01em]")], ["skin"]),
-			divider(h),
-			h.span([h.Class("hidden truncate font-mono text-[12px] text-faint sm:inline")], [model.name]),
 			h.div(
 				[h.Class("ml-auto flex flex-none items-center gap-4")],
 				[
@@ -52,7 +51,7 @@ const header = (h: H, model: Model): Html => {
 						[h.Class("flex items-center gap-2")],
 						[
 							h.span([h.Class("md:hidden")], [button(h, "Files", Message.ToggledFilesPanel(), SECONDARY)]),
-							button(h, "New", Message.ClickedNew(), SECONDARY),
+							h.span([h.Class("md:hidden")], [button(h, "New chat", Message.ClickedNew(), SECONDARY)]),
 						],
 					),
 				],
@@ -122,8 +121,9 @@ export const view = (model: Model, h: H): Document => ({
 		[
 			header(h, model),
 			h.main(
-				[h.Class("grid min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px]")],
+				[h.Class("grid min-h-0 grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)_300px]")],
 				[
+					chatsPanel(h, model),
 					h.section(
 						[h.Class("grid min-h-0 grid-rows-[1fr_auto]"), h.AriaLabel("Conversation")],
 						[h.div([h.Id("log"), h.Class("overflow-y-auto px-5 pt-8 pb-4")], [transcript(h, model)]), h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)])],

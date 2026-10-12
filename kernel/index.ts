@@ -7,6 +7,7 @@ import {
 	BODY_SOCKET_PATH,
 	BodyStateJson,
 	BootReportJson,
+	ConversationListJson,
 	ConversationName,
 	FilesUnavailable,
 	KERNEL_PREFIX,
@@ -16,6 +17,7 @@ import {
 	RollbackOutcomeJson,
 	RPC_PATH,
 	SendOutcomeJson,
+	ShipReportJson,
 	SnapshotJson,
 } from "../shared/protocol";
 import { accessConfig, accessToken, verifyAccessToken } from "./access";
@@ -57,6 +59,10 @@ const decodeBodyState = Schema.decodeEffect(BodyStateJson);
 
 const decodeRollback = Schema.decodeEffect(RollbackOutcomeJson);
 
+const decodeConversations = Schema.decodeEffect(ConversationListJson);
+
+const decodeShipReport = Schema.decodeEffect(ShipReportJson);
+
 const decodeReport = Schema.decodeUnknownOption(BootReportJson);
 
 const bodyOf = (env: Env, user: UserId) => env.BODY.getByName(user);
@@ -80,7 +86,16 @@ const handlers = (env: Env, user: UserId) =>
 	AgentRpcs.toLayer({
 		Snapshot: ({ name }) => call(() => agentFor(env, user, name).getSnapshot(name)).pipe(Effect.flatMap(decodeSnapshot), Effect.catchTag("SchemaError", Effect.die)),
 		Send: ({ name, text }) =>
-			call(() => agentFor(env, user, name).send(name, text)).pipe(Effect.flatMap(decodeSend), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
+			call(() => agentFor(env, user, name).send(name, text)).pipe(
+				Effect.flatMap(decodeSend),
+				Effect.catchTag("SchemaError", Effect.die),
+				Effect.flatMap(Effect.fromResult),
+				Effect.tap(() => bodyCall(() => bodyOf(env, user).touchConversation(name, text)).pipe(Effect.ignore)),
+			),
+		Conversations: () => bodyCall(() => bodyOf(env, user).conversations()).pipe(Effect.flatMap(decodeConversations), Effect.catchTag("SchemaError", Effect.die)),
+		DeleteConversation: ({ name }) =>
+			call(() => agentFor(env, user, name).forget()).pipe(Effect.andThen(bodyCall(() => bodyOf(env, user).forgetConversation(name)))),
+		ResetApp: () => bodyCall(() => bodyOf(env, user).resetApp()).pipe(Effect.flatMap(decodeShipReport), Effect.catchTag("SchemaError", Effect.die)),
 		Kill: ({ name }) =>
 			Effect.gen(function* () {
 				const before = yield* storedKills(env, user, name);
@@ -156,6 +171,8 @@ const socket = (request: Request, env: Env, user: UserId, rawName: string): Prom
 const MAX_REPORT = 4096;
 
 const WHO_AM_I = `${KERNEL_PREFIX}/api/me`;
+
+const TEST_ABORT_BODY = `${KERNEL_PREFIX}/api/test/abort-body`;
 
 const CONSOLE_BODY = `${KERNEL_PREFIX}/api/body`;
 
@@ -247,6 +264,12 @@ export default {
 		if (pathname === BODY_SOCKET_PATH) return request.headers.get("Upgrade") === "websocket" ? bodyOf(env, user).fetch(request) : refuse(426, "expected websocket");
 
 		if (pathname === WHO_AM_I && request.method === "GET") return whoAmI(admission.person);
+
+		if (pathname === TEST_ABORT_BODY && request.method === "POST" && isLocalDev(request, env)) {
+			const aborted = await bodyOf(env, user).abortForTest().then(() => "not aborted", (cause: unknown) => `aborted: ${String(cause)}`);
+
+			return new Response(aborted);
+		}
 
 		if (pathname === REPORT_PATH && request.method === "POST") return report(request, env, user);
 

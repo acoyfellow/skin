@@ -66,6 +66,14 @@ const fileRow = (h: H, model: Model, path: string): ReadonlyArray<Html> => {
 
 type GenerationRow = Model["body"]["generations"][number];
 
+const STATUS_LABEL: Readonly<Record<GenerationRow["status"], string>> = {
+	building: "checking",
+	rejected: "blocked",
+	ready: "ready",
+	live: "live",
+	retired: "earlier",
+};
+
 const STATUS_TONE: Readonly<Record<GenerationRow["status"], string>> = {
 	building: "text-life",
 	rejected: "text-bad",
@@ -92,9 +100,9 @@ const generationRow = (h: H, generation: GenerationRow): Html =>
 					generation.status === "retired"
 						? h.button(
 								[h.Type("button"), h.Class("rounded border border-line-strong px-1.5 text-[12px] hover:bg-raised"), h.OnClick(Message.ClickedRollback({ generation: generation.id }))],
-								["Roll back"],
+								["Use this"],
 							)
-						: h.span([h.Class(`font-mono text-[12px] ${STATUS_TONE[generation.status]}`)], [generation.status]),
+						: h.span([h.Class(`font-mono text-[12px] ${STATUS_TONE[generation.status]}`)], [STATUS_LABEL[generation.status]]),
 				],
 			),
 			...(generation.status === "rejected" ? [h.pre([h.Class("mt-1 max-h-32 overflow-auto font-mono text-[11px] whitespace-pre-wrap text-bad")], [generation.note === "" ? failedChecks(generation) : generation.note])] : []),
@@ -112,16 +120,32 @@ export const filesPanel = (h: H, model: Model): Html => {
 			h.Class(
 				`${model.filesPanelOpen ? "fixed inset-0 top-14 z-10 block" : "hidden"} overflow-y-auto border-l border-line bg-panel md:static md:block`,
 			),
-			h.AriaLabel("Source and generations"),
+			h.AriaLabel("Files and versions"),
 		],
 		[
-			heading(h, "Source", String(model.body.files.length)),
+			heading(h, "Files", String(model.body.files.length)),
 			...Option.match(model.filesError, { onNone: () => [], onSome: (reason) => [h.p([h.Id("files-error"), h.Class("px-4 py-2 text-[13px] text-bad")], [reason])] }),
 			...Option.match(writing, { onNone: () => [], onSome: (block) => [liveFile(h, block)] }),
 			...(Arr.isReadonlyArrayEmpty(model.body.files) ? (Option.isNone(writing) ? [none(h, "No files yet.")] : []) : model.body.files.flatMap((path) => fileRow(h, model, path))),
-			heading(h, "Generations", Option.match(model.body.live, { onNone: () => "none live", onSome: (live) => `#${live} is live${model.body.dirty ? ", draft has changes" : ""}` })),
+			heading(h, "Versions", Option.match(model.body.live, { onNone: () => "none live yet", onSome: (live) => `#${live} is live${model.body.dirty ? ", unshipped edits" : ""}` })),
+			h.div(
+				[h.Class("px-4 pb-2")],
+				[
+					h.button(
+						[
+							h.Type("button"),
+							h.Class("rounded border border-line-strong px-2 py-1 text-[12px] hover:bg-raised disabled:opacity-40"),
+							h.Disabled(model.resetting),
+							h.Title("Build the original app again as a new version. Every earlier version stays here, so this can be undone too."),
+							h.OnClick(Message.ClickedResetApp()),
+						],
+						[model.resetting ? "Resetting…" : "Reset to the original"],
+					),
+					...Option.match(model.resetNote, { onNone: () => [], onSome: (note) => [h.p([h.Class("mt-1 text-[12px] text-dim")], [note])] }),
+				],
+			),
 			...Option.match(model.rollbackError, { onNone: () => [], onSome: (reason) => [h.p([h.Class("px-4 py-2 text-[13px] text-bad")], [reason])] }),
-			...(generationCount === 0 ? [none(h, "No generations yet.")] : model.body.generations.map((generation) => generationRow(h, generation))),
+			...(generationCount === 0 ? [none(h, "No versions yet.")] : model.body.generations.map((generation) => generationRow(h, generation))),
 		],
 	);
 };

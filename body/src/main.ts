@@ -1,7 +1,7 @@
 import { Effect, Option, Schema } from "effect";
 import type { Runtime } from "foldkit";
 import { ConversationName } from "./kernel/protocol";
-import { ShowConversation } from "./command";
+import { LoadConversations, ShowConversation } from "./command";
 import type { Message } from "./message";
 import type { AgentClient } from "./rpc";
 import { type Model, OpenFile, Phase } from "./model";
@@ -39,6 +39,10 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	body: { files: [], generations: [], live: Option.none(), dirty: false },
 	bodyVersion: 0,
 	rollbackError: Option.none(),
+	conversations: [],
+	conversationsError: Option.none(),
+	resetting: false,
+	resetNote: Option.none(),
 	filesError: Option.none(),
 	events: [],
 	localNotes: [],
@@ -53,5 +57,5 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 
 export const init: Runtime.ApplicationInit<Model, Message, Flags, AgentClient> = (startup) => ({
 	model: initialModel(startup),
-	commands: startup.isNew ? [] : [ShowConversation({ name: startup.name })],
+	commands: startup.isNew ? [LoadConversations()] : [ShowConversation({ name: startup.name }), LoadConversations()],
 });

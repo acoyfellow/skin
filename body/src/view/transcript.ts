@@ -103,9 +103,9 @@ const timeline = (h: H, model: Model): ReadonlyArray<Placed> =>
 	].toSorted((a, b) => a.afterBlock - b.afterBlock || a.at - b.at);
 
 const steps: ReadonlyArray<readonly [string, string]> = [
-	["Ask for a change to this app.", "Anything: a new panel, a different layout, a feature on its server. This chat is part of the app too."],
-	["It rewrites its own code.", "The agent edits the source, then builds it into a new generation while you keep using this one."],
-	["It only goes live if it works.", "Every generation must build, boot, and pass its checks. A bad one is rejected; one that crashes in your browser is rolled back."],
+	["Ask for a change.", "Anything you see: a new feature, a different layout, a different look. This chat is part of the app too."],
+	["Your agent rewrites the app.", "It edits the code and builds a new version while you keep using this one."],
+	["It only goes live if it works.", "Each new version is tested first. If it fails, you keep the current one. Every earlier version stays under Versions, so you can always go back."],
 ];
 
 const emptyState = (h: H): Html =>
@@ -120,17 +120,17 @@ const emptyState = (h: H): Html =>
 						[
 							h.h2(
 								[h.Class("text-[34px] leading-[1.1] font-semibold tracking-[-0.03em]")],
-								["This app rewrites itself. ", h.span([h.Class("text-life")], ["It can't break itself."])],
+								["This is your own skin. ", h.span([h.Class("text-life")], ["Change anything."])],
 							),
 							h.p(
 								[h.Class("max-w-[52ch] text-[16px] text-dim")],
 								[
-									"Ask it to change anything you see, including this page. Each change is a new generation that must pass the gate before it replaces this one, and every earlier generation stays one click away.",
+									"Nobody else sees your copy. Tell your agent what you want, and it reshapes the app around you.",
 								],
 							),
 						],
 					),
-					h.img([h.Src("/_kernel/icon.svg"), h.Alt(""), h.Class("hidden aspect-square w-full rounded-xl sm:block")]),
+					h.img([h.Src("/_kernel/hero.png"), h.Alt(""), h.Class("hidden aspect-square w-full rounded-xl object-cover sm:block")]),
 				],
 			),
 			h.ol(

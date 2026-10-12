@@ -7,6 +7,7 @@ import {
 	BodyFrame,
 	type BodyState,
 	BodyStateJson,
+	ConversationListJson,
 	type Check,
 	type Generation,
 	GenerationRejected,
@@ -39,6 +40,10 @@ const READ_ONLY_PREFIX = "src/kernel/";
 
 const HOUR_MS = 3_600_000;
 
+const MAX_TITLE = 80;
+
+export const INTERRUPTED = "interrupted: the kernel restarted while this version was building, so it never went live. Ship again to rebuild it.";
+
 const MAX_BUILDS_PER_HOUR = 30;
 
 const writable = (path: string): Effect.Effect<string, InvalidPath> =>
@@ -69,6 +74,8 @@ const encodeReport = Schema.encodeSync(ShipReportJson);
 const encodeRollback = Schema.encodeSync(RollbackOutcomeJson);
 
 const encodeFrame = Schema.encodeSync(ServerFrameJson);
+
+const encodeConversations = Schema.encodeSync(ConversationListJson);
 
 const decodeChecks = Schema.decodeUnknownSync(ChecksJson);
 
@@ -156,7 +163,38 @@ const pinnedGeneration = (request: Request): Option.Option<number> => {
 	return match?.[1] === undefined ? Option.none() : Option.some(Number(match[1]));
 };
 
-const GROWING_PAGE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Growing</title><meta http-equiv="refresh" content="3"><body style="font:15px system-ui;display:grid;place-items:center;height:100vh;margin:0;color:#4d4d4d"><p>The first generation is growing. This page reloads on its own.</p>`;
+const GROWING_PAGE = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Setting up your skin</title>
+<link rel="icon" href="/_kernel/icon.png" type="image/png">
+<body style="margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 system-ui,sans-serif;color:#171717;background:#fafafa">
+<main style="max-width:440px;padding:32px">
+<img src="/_kernel/icon.png" width="56" height="56" alt="" style="border-radius:14px">
+<h1 style="font-size:22px;margin:16px 0 8px">Setting up your own skin</h1>
+<p style="color:#4d4d4d;margin:0 0 20px">Everyone who signs in gets their own copy of this app, which their agent can rewrite. Yours is being built and tested now. This happens once and takes about 20 seconds.</p>
+<p id="step" style="margin:0;font-weight:600">Building your app…</p>
+<p id="detail" style="margin:4px 0 0;color:#737373;font-size:13px">0 s</p>
+</main>
+<script>
+const started = Date.now();
+const step = document.getElementById("step");
+const detail = document.getElementById("detail");
+const tick = () => fetch("/_kernel/api/body", { credentials: "same-origin" }).then((response) => response.json()).then((state) => {
+	const seconds = Math.round((Date.now() - started) / 1000);
+	const latest = state.generations[0];
+	if (state.live !== null) { step.textContent = "Ready. Opening your app…"; location.reload(); return; }
+	if (latest && latest.status === "rejected" && !latest.note.startsWith("interrupted")) {
+		step.textContent = "Your app could not be built.";
+		detail.innerHTML = "";
+		detail.append(latest.note + " ");
+		const link = document.createElement("a"); link.href = "/_kernel/"; link.textContent = "Open the console"; detail.append(link);
+		return;
+	}
+	step.textContent = latest && latest.status === "building" ? "Building and testing your app…" : "Starting…";
+	detail.textContent = seconds + " s";
+	setTimeout(tick, 1500);
+}).catch(() => setTimeout(tick, 3000));
+tick();
+</script>
+</body></html>`;
 
 const failureDetail = <E>(failure: E): string =>
 	Predicate.hasProperty(failure, "detail") ? String(failure.detail) : Predicate.isTagged(failure, "TimeoutError") ? `timed out after ${CHECK_TIMEOUT_MS} ms` : String(failure);
@@ -199,6 +237,9 @@ export class Body extends DurableObject<BodyEnv> {
 		this.sql("CREATE TABLE IF NOT EXISTS outputs (generation INTEGER NOT NULL, part INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (generation, part))");
 		this.sql("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 		this.sql("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+		this.sql("CREATE TABLE IF NOT EXISTS conversations (name TEXT PRIMARY KEY, title TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)");
+
+		this.sql("UPDATE generations SET status = 'rejected', note = ? WHERE status = 'building'", INTERRUPTED);
 
 		const empty = this.sql("SELECT COUNT(*) AS n FROM draft")[0];
 		const born = this.sql("SELECT COUNT(*) AS n FROM generations")[0];
@@ -353,7 +394,7 @@ export class Body extends DurableObject<BodyEnv> {
 		if (same !== undefined && (same.status !== "building" || !this.building.has(treeHash))) {
 			if (Option.contains(live, same.id)) return encodeReport({ generation: same.id, status: "unchanged", checks: same.checks, reason: "This is already the live generation." });
 
-			if (same.status === "rejected") return encodeReport({ generation: same.id, status: "rejected", checks: same.checks, reason: `These exact files were already rejected as generation ${same.id}: ${same.note}` });
+			if (same.status === "rejected" && same.note !== INTERRUPTED) return encodeReport({ generation: same.id, status: "rejected", checks: same.checks, reason: `These exact files were already rejected as generation ${same.id}: ${same.note}` });
 		}
 
 		const limited = this.buildLimit();
@@ -536,6 +577,34 @@ export class Body extends DurableObject<BodyEnv> {
 		});
 	}
 
+	touchConversation(name: string, firstMessage: string): void {
+		const now = Date.now();
+		const title = firstMessage.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE);
+
+		this.sql("INSERT INTO conversations (name, title, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET updated_at = excluded.updated_at", name, title, now, now);
+	}
+
+	conversations(): string {
+		return encodeConversations(
+			this.sql("SELECT name, title, updated_at FROM conversations ORDER BY updated_at DESC LIMIT 200").map((row) => ({ name: text(row, "name"), title: text(row, "title"), updatedAt: num(row, "updated_at") })),
+		);
+	}
+
+	forgetConversation(name: string): void {
+		this.sql("DELETE FROM conversations WHERE name = ?", name);
+	}
+
+	async resetApp(): Promise<string> {
+		this.replaceDraft(SEED);
+		this.notify();
+
+		return this.ship("Reset to the original app");
+	}
+
+	abortForTest(): void {
+		this.ctx.abort("aborted by the local e2e");
+	}
+
 	reseed(): string {
 		this.replaceDraft(SEED);
 		this.notify();
@@ -587,7 +656,11 @@ export class Body extends DurableObject<BodyEnv> {
 	}
 
 	private ensureBorn(): void {
-		if (Option.isNone(this.liveId()) && this.building.size === 0 && this.generationRows().length === 0) this.ctx.waitUntil(this.ship("Seed: the first generation"));
+		if (Option.isSome(this.liveId()) || this.building.size > 0) return;
+
+		const latest = this.generationRows()[0];
+
+		if (latest === undefined || latest.note === INTERRUPTED) this.ctx.waitUntil(this.ship("Seed: the first version"));
 	}
 
 	override async fetch(request: Request): Promise<Response> {

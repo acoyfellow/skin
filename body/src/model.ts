@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
-import { Block, BodyState, ConversationName, Live, TimelineEvent } from "./kernel/protocol";
+import { Block, BodyState, ConversationName, ConversationSummary, Live, TimelineEvent } from "./kernel/protocol";
 
 export const Phase = defineTaggedUnion({
 	Connecting: {},
@@ -37,6 +37,10 @@ export const Model = Schema.Struct({
 	body: BodyState,
 	bodyVersion: Schema.Number,
 	rollbackError: Schema.Option(Schema.String),
+	conversations: Schema.Array(ConversationSummary),
+	conversationsError: Schema.Option(Schema.String),
+	resetting: Schema.Boolean,
+	resetNote: Schema.Option(Schema.String),
 	filesError: Schema.Option(Schema.String),
 	events: Schema.Array(TimelineEvent),
 	localNotes: Schema.Array(LocalNote),
@@ -52,7 +56,7 @@ export const Model = Schema.Struct({
 export type Model = typeof Model.Type;
 
 export const EXAMPLES = [
-	"Add a notes panel that saves to the server and survives every generation",
+	"Add a notes panel that saves to the server and survives every version",
 	"Switch the whole app to a dark theme",
 	"Show a clock in the header that ticks every second",
 ] as const;

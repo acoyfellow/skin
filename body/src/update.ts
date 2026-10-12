@@ -1,8 +1,8 @@
 import { Match, Option } from "effect";
 import type { Command, Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
-import { type ServerFrame, type Snapshot, UserBlock } from "./kernel/protocol";
-import { LoadFile, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
+import { ConversationName, type ServerFrame, type Snapshot, UserBlock } from "./kernel/protocol";
+import { DeleteConversation, LoadConversations, LoadFile, OpenConversation, ResetApp, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
 import { Message } from "./message";
 import { type Model, OpenFile, Phase } from "./model";
 import type { AgentClient } from "./rpc";
@@ -118,7 +118,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		UpdatedDraft: ({ value }) => ({ model: modifyFields(model, { draft: () => value }) }),
 		SubmittedDraft: () => send(model, model.draft),
 		ClickedExample: ({ text }) => send(model, text),
-		SucceededSend: () => ({ model }),
+		SucceededSend: () => ({ model, commands: [LoadConversations()] }),
 		FailedSend: ({ reason }) => ({ model: settlePhase(withNote(model, reason), false) }),
 		ClickedNew: () => ({ model, commands: [StartNewConversation()] }),
 		ToggledFilesPanel: () => ({ model: modifyFields(model, { filesPanelOpen: (open) => !open }) }),
@@ -137,6 +137,16 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		ToggledThought: ({ key }) => ({ model: modifyFields(model, { openThoughts: (open) => toggled(open, key) }) }),
 		Ticked: ({ now }) => ({ model: modifyFields(model, { now: () => now }) }),
 		CompletedNavigation: () => ({ model }),
+		LoadedConversations: ({ conversations }) => ({ model: modifyFields(model, { conversations: () => conversations, conversationsError: () => Option.none() }) }),
+		FailedConversations: ({ reason }) => ({ model: modifyFields(model, { conversationsError: () => Option.some(reason) }) }),
+		ClickedConversation: ({ name }) => (name === model.name ? { model } : { model, commands: [OpenConversation({ name: ConversationName.make(name) })] }),
+		ClickedDeleteConversation: ({ name }) => ({
+			model: modifyFields(model, { conversations: (all) => all.filter((conversation) => conversation.name !== name) }),
+			commands: [DeleteConversation({ name: ConversationName.make(name) })],
+		}),
+		DeletedConversation: ({ name }) => ({ model, commands: name === model.name ? [StartNewConversation()] : [LoadConversations()] }),
+		ClickedResetApp: () => (model.resetting ? { model } : { model: modifyFields(model, { resetting: () => true, resetNote: () => Option.none() }), commands: [ResetApp()] }),
+		FinishedResetApp: ({ note }) => ({ model: modifyFields(model, { resetting: () => false, resetNote: () => Option.some(note) }) }),
 		ClickedRollback: ({ generation }) => ({ model: modifyFields(model, { rollbackError: () => Option.none() }), commands: [Rollback({ generation })] }),
 		SucceededRollback: () => ({ model }),
 		FailedRollback: ({ reason }) => ({ model: modifyFields(model, { rollbackError: () => Option.some(reason) }) }),

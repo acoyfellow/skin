@@ -39,6 +39,12 @@ export type BodyState = typeof BodyState.Type;
 
 export const BodyStateJson = Schema.fromJsonString(Schema.toCodecJson(BodyState));
 
+export const ConversationSummary = Schema.Struct({ name: Schema.String, title: Schema.String, updatedAt: Schema.Number });
+
+export type ConversationSummary = typeof ConversationSummary.Type;
+
+export const ConversationListJson = Schema.fromJsonString(Schema.Array(ConversationSummary));
+
 export const ShipStatus = Schema.Literals(["live", "rejected", "unchanged"]);
 
 export const ShipReport = Schema.Struct({ generation: Schema.Number, status: ShipStatus, checks: Schema.Array(Check), reason: Schema.String });
@@ -170,6 +176,9 @@ export const AgentRpcs = RpcGroup.make(
 	Rpc.make("Kill", { payload: target, error: Schema.Union([NothingRunning, KillNotSaved, AgentUnavailable]) }),
 	Rpc.make("ReadFile", { payload: { ...target, path: Schema.String }, success: Schema.String, error: Schema.Union([FileNotFound, FilesUnavailable, AgentUnavailable]) }),
 	Rpc.make("Body", { success: BodyState, error: FilesUnavailable }),
+	Rpc.make("Conversations", { success: Schema.Array(ConversationSummary), error: FilesUnavailable }),
+	Rpc.make("DeleteConversation", { payload: target, error: Schema.Union([AgentUnavailable, FilesUnavailable]) }),
+	Rpc.make("ResetApp", { success: ShipReport, error: FilesUnavailable }),
 	Rpc.make("Rollback", { payload: { generation: Schema.Number }, success: Schema.Number, error: Schema.Union([NoSuchGeneration, GenerationRejected, FilesUnavailable]) }),
 );
 

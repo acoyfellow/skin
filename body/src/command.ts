@@ -34,6 +34,46 @@ export const Rollback = Command.define("Rollback", {
 		}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedRollback({ reason: error.message === "" ? error._tag : error.message })))),
 });
 
+const reason = (error: { readonly message: string; readonly _tag: string }) => (error.message === "" ? error._tag : error.message);
+
+export const LoadConversations = Command.define("LoadConversations", {
+	messages: [Message.LoadedConversations, Message.FailedConversations],
+	execute: Effect.gen(function* () {
+		const client = yield* AgentClient;
+
+		return Message.LoadedConversations({ conversations: yield* client.Conversations() });
+	}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedConversations({ reason: reason(error) })))),
+});
+
+export const DeleteConversation = Command.define("DeleteConversation", {
+	args: { name: ConversationName },
+	messages: [Message.DeletedConversation, Message.FailedConversations],
+	execute: ({ name }) =>
+		Effect.gen(function* () {
+			const client = yield* AgentClient;
+
+			yield* client.DeleteConversation({ name });
+
+			return Message.DeletedConversation({ name });
+		}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedConversations({ reason: reason(error) })))),
+});
+
+export const OpenConversation = Command.define("OpenConversation", {
+	args: { name: ConversationName },
+	messages: [Message.CompletedNavigation],
+	execute: ({ name }) => Navigation.load(`/c/${name}`).pipe(Effect.as(Message.CompletedNavigation())),
+});
+
+export const ResetApp = Command.define("ResetApp", {
+	messages: [Message.FinishedResetApp],
+	execute: Effect.gen(function* () {
+		const client = yield* AgentClient;
+		const report = yield* client.ResetApp();
+
+		return Message.FinishedResetApp({ note: report.status === "live" ? `Version ${report.generation} is the original app again.` : `The reset was not applied: ${report.reason}` });
+	}).pipe(Effect.catch((error) => Effect.succeed(Message.FinishedResetApp({ note: `The reset failed: ${reason(error)}` })))),
+});
+
 export const LoadFile = Command.define("LoadFile", {
 	args: { name: ConversationName, path: Schema.String, at: Schema.String },
 	messages: [Message.LoadedFile],

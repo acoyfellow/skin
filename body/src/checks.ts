@@ -15,7 +15,7 @@ import {
 	SnapshotFrame,
 	UserBlock,
 } from "./kernel/protocol";
-import { Send, ShowConversation } from "./command";
+import { DeleteConversation, LoadConversations, Send, ShowConversation, StartNewConversation } from "./command";
 import { initialModel } from "./main";
 import { Message } from "./message";
 import { reconnectDelay } from "./socket";
@@ -116,6 +116,7 @@ describe("sending", () => {
 			Command.expectHas(ShowConversation),
 			Command.resolve(Send, Message.SucceededSend()),
 			Command.resolve(ShowConversation, Message.CompletedNavigation()),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
 		);
 	});
 
@@ -235,3 +236,44 @@ describe("restarts", () => {
 		);
 	});
 });
+
+describe("chats", () => {
+	const listed = update(fresh, Message.LoadedConversations({ conversations: [{ name: "c-other", title: "Make it dark", updatedAt: 900 }, { name: "c-story", title: "Add a clock", updatedAt: 800 }] })).model;
+
+	test("deleting a chat removes it from the list at once and asks the server to forget it", () => {
+		story(
+			update,
+			given(listed),
+			message(Message.ClickedDeleteConversation({ name: "c-other" })),
+			model((current) => {
+				expect(current.conversations.map((conversation) => conversation.name)).toEqual(["c-story"]);
+			}),
+			Command.expectHas(DeleteConversation),
+			Command.resolve(DeleteConversation, Message.DeletedConversation({ name: "c-other" })),
+			Command.expectHas(LoadConversations),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
+		);
+	});
+
+	test("deleting the chat you are in starts a new one", () => {
+		story(
+			update,
+			given(listed),
+			message(Message.ClickedDeleteConversation({ name: "c-story" })),
+			Command.resolve(DeleteConversation, Message.DeletedConversation({ name: "c-story" })),
+			Command.expectHas(StartNewConversation),
+			Command.resolve(StartNewConversation, Message.CompletedNavigation()),
+		);
+	});
+
+	test("a reset already running ignores a second click", () => {
+		const resetting = update(fresh, Message.ClickedResetApp());
+
+		story(update, given(resetting.model), message(Message.ClickedResetApp()), Command.expectNone());
+	});
+
+	test("a sent message refreshes the chat list", () => {
+		story(update, given(fresh), message(Message.SucceededSend()), Command.expectHas(LoadConversations), Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })));
+	});
+});
+

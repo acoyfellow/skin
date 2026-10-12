@@ -96,6 +96,19 @@ export class Agent extends DurableObject<AgentEnv> {
 		return this.run(Option.some(name), withAgent((agent) => agent.readFile(path)).pipe(Effect.result, Effect.map(encodeRead)));
 	}
 
+	async forget(): Promise<void> {
+		const current = this.runtime;
+
+		this.runtime = Option.none();
+
+		if (Option.isSome(current)) await current.value.dispose();
+
+		for (const socket of this.ctx.getWebSockets()) socket.close(1000, "conversation deleted");
+
+		await this.ctx.storage.deleteAlarm();
+		await this.ctx.storage.deleteAll();
+	}
+
 	override async fetch(request: Request): Promise<Response> {
 		const name = new Meta(this.ctx.storage).nameFromUrl(request.url);
 		const snapshot = await this.run(name, withAgent((agent) => agent.snapshot));

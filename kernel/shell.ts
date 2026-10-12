@@ -213,6 +213,8 @@ const STATIC = new Map<string, () => Response>([
 	[`${KERNEL_PREFIX}/icon.svg`, () => respond(ICON_SVG, "image/svg+xml", "public, max-age=86400")],
 	[`${KERNEL_PREFIX}/icon-192.png`, () => respond(decodeBase64(ICON_192), "image/png", "public, max-age=86400")],
 	[`${KERNEL_PREFIX}/icon-512.png`, () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/icon.png`, () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/hero.png`, () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400")],
 	[`${KERNEL_PREFIX}/`, () => respond(CONSOLE, "text/html; charset=utf-8")],
 	[KERNEL_PREFIX, () => respond(CONSOLE, "text/html; charset=utf-8")],
 	[`${KERNEL_PREFIX}/unpin`, () => new Response(null, { status: 302, headers: { location: "/", "set-cookie": `${PIN_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax` } })],

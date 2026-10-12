@@ -190,6 +190,46 @@ await scenario("data the server stores survives a new generation and a rollback"
 	return { status: note.status };
 });
 
+await scenario("a version interrupted mid-build by a kill never sticks, and shipping again makes it live", "abort the Body while it builds; the half-built version is marked interrupted, nothing half-built goes live, and the same ship succeeds on retry", async () => {
+	if (!LOCAL) return { skipped: "the kill switch exists only in local dev" };
+
+	const before = await live();
+	const changed = original["src/view/index.ts"].replace('["skin"]', JSON.stringify([`skin ${NONCE} interrupted`]));
+
+	if (changed === original["src/view/index.ts"]) throw new Error("could not find the title in src/view/index.ts");
+
+	await write("src/view/index.ts", changed);
+
+	const shipping = http("POST", "/_kernel/api/ship", `e2e ${NONCE}: interrupted`).catch((error) => ({ status: 0, text: String(error) }));
+
+	await sleep(3000);
+
+	const aborted = await http("POST", "/_kernel/api/test/abort-body");
+	const cut = await shipping;
+
+	const after = await until("the Body to come back", async () => {
+		const current = await state().catch(() => undefined);
+
+		return current?.generations.find((generation) => generation.message.includes("interrupted"))?.status === "rejected" ? current : undefined;
+	}, 30_000);
+
+	const interrupted = after.generations.find((generation) => generation.message.includes("interrupted"));
+
+	if (!interrupted.note.startsWith("interrupted")) throw new Error(`the cut version was not marked interrupted: ${interrupted.note}`);
+
+	if (after.live !== before) throw new Error(`live moved to ${after.live} while a version was half built`);
+
+	const retry = await ship(`e2e ${NONCE}: interrupted, shipped again`);
+
+	if (retry.status !== "live") throw new Error(`the retry did not go live: ${retry.status} ${retry.reason}`);
+
+	await write("src/view/index.ts", original["src/view/index.ts"]);
+
+	const restore = await ship(`e2e ${NONCE}: restore the title`);
+
+	return { aborted: aborted.text.slice(0, 80), cutShip: cut.status, interrupted: interrupted.id, retry: retry.generation, restored: restore.status };
+});
+
 await scenario("a good change goes live and renders in the browser", "ship live; / serves the new generation; the page shows the change", async () => {
 	const marker = `skin ${NONCE}`;
 	const changed = original["src/view/index.ts"].replace('["skin"]', JSON.stringify([marker]));
