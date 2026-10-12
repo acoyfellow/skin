@@ -1,0 +1,13 @@
+{
+	"name": "planarian-exp-001",
+	"main": "src/index.ts",
+	"workers_dev": false,
+	"preview_urls": false,
+	"compatibility_date": "2026-09-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"worker_loaders": [{ "binding": "LOADER" }],
+	"rules": [{ "type": "Text", "globs": ["**/*.css"], "fallthrough": true }],
+	"durable_objects": { "bindings": [{ "name": "PROBE", "class_name": "Probe" }] },
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Probe"] }],
+	"limits": { "cpu_ms": 300000 }
+}

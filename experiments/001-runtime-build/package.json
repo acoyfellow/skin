@@ -1,0 +1,8 @@
+{
+  "name": "planarian-exp-001",
+  "private": true,
+  "type": "module",
+  "scripts": { "prep": "node prep.mjs", "dev": "node prep.mjs && wrangler dev --port 8799" },
+  "dependencies": { "@cloudflare/worker-bundler": "0.2.6", "tailwindcss": "4.3.3" },
+  "devDependencies": { "wrangler": "4.149.0", "@cloudflare/workers-types": "^5.20261007.1" }
+}

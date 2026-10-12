@@ -1,0 +1,1 @@
+{ "name": "probe-app", "type": "module", "dependencies": { "effect": "4.0.0", "foldkit": "0.168.0" } }

@@ -1,0 +1,8 @@
+{"mode":"memory","buildMs":11099,"twMs":9,"loadMs":44,"server":"{\"ok\":true,\"path\":\"/hello\"}","cssBytes":5766,"hasViolet":true,"sizes":{"/index.html":78,"/client.js":719608},"fsFiles":3320}
+{"mode":"warm","buildMs":10146,"twMs":8,"loadMs":46,"server":"{\"ok\":true,\"path\":\"/hello\"}","cssBytes":5766,"hasViolet":true,"sizes":{"/index.html":78,"/client.js":719608},"fsFiles":3320}
+{"mode":"warm","buildMs":9954,"twMs":10,"loadMs":45,"server":"{\"ok\":true,\"path\":\"/hello\"}","cssBytes":5766,"hasViolet":true,"sizes":{"/index.html":78,"/client.js":719608},"fsFiles":3320}
+{"mode":"kv","buildMs":11180,"twMs":8,"loadMs":46,"server":"{\"ok\":true,\"path\":\"/hello\"}","cssBytes":5766,"hasViolet":true,"sizes":{"/index.html":78,"/client.js":719608},"fsFiles":3320}
+{"mode":"kv","buildMs":11394,"twMs":8,"loadMs":47,"server":"{\"ok\":true,\"path\":\"/hello\"}","cssBytes":5766,"hasViolet":true,"sizes":{"/index.html":78,"/client.js":719608},"fsFiles":3320}
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1m*** Fatal uncaught kj::Exception: rust/cxx/kj-rs-io/ffi.rs:209: failed: bind(): Address already in use (os error 98)[0m
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mThe Workers runtime failed to start. There was likely a problem with the workerd binary or your configuration.[0m
+  *** Fatal uncaught kj::Exception: rust/cxx/kj-rs-io/ffi.rs:209: failed: bind(): Address already in use (os error 98)
