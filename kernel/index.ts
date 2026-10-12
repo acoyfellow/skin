@@ -1,23 +1,40 @@
 import { Context, Effect, Layer, Option, Predicate, Schema } from "effect";
 import { HttpRouter } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
-import { AgentRpcs, AgentUnavailable, ConversationName, KillOutcomeJson, ReadOutcomeJson, RPC_PATH, SendOutcomeJson, SnapshotJson } from "../shared/protocol";
+import {
+	AgentRpcs,
+	AgentUnavailable,
+	BODY_SOCKET_PATH,
+	BodyStateJson,
+	BootReportJson,
+	ConversationName,
+	FilesUnavailable,
+	KERNEL_PREFIX,
+	KillOutcomeJson,
+	ReadOutcomeJson,
+	REPORT_PATH,
+	RollbackOutcomeJson,
+	RPC_PATH,
+	SendOutcomeJson,
+	SnapshotJson,
+} from "../shared/protocol";
 import { accessConfig, accessToken, verifyAccessToken } from "./access";
 import { Agent, type AgentEnv } from "./agent";
+import { Body } from "./body";
+import { Builder } from "./builder";
+import { kernelAsset } from "./shell";
+import { BODY_NAME, BodyStore } from "./store";
 
-export { Agent };
+export { Agent, Body, Builder, BodyStore };
 
 type Env = AgentEnv & {
 	readonly AGENT: DurableObjectNamespace<Agent>;
-	readonly ASSETS: Fetcher;
 	readonly ACCESS_TEAM_DOMAIN?: string;
 	readonly ACCESS_AUD?: string;
 	readonly LOCAL_DEV_WITHOUT_ACCESS?: string;
 };
 
-const SOCKET_ROUTE = /^\/api\/c\/([^/]+)\/ws$/;
-
-const PAGE_ROUTE = /^\/c\/([^/]+)\/?$/;
+const SOCKET_ROUTE = /^\/_kernel\/api\/c\/([^/]+)\/ws$/;
 
 const decodeName = Schema.decodeUnknownOption(ConversationName);
 
@@ -34,6 +51,16 @@ const decodeSend = Schema.decodeEffect(SendOutcomeJson);
 const decodeKill = Schema.decodeEffect(KillOutcomeJson);
 
 const decodeRead = Schema.decodeEffect(ReadOutcomeJson);
+
+const decodeBodyState = Schema.decodeEffect(BodyStateJson);
+
+const decodeRollback = Schema.decodeEffect(RollbackOutcomeJson);
+
+const decodeReport = Schema.decodeUnknownOption(BootReportJson);
+
+const bodyOf = (env: Env) => env.BODY.getByName(BODY_NAME);
+
+const bodyCall = <A>(promise: () => Promise<A>): Effect.Effect<A, FilesUnavailable> => Effect.tryPromise({ try: promise, catch: (cause) => new FilesUnavailable({ reason: String(cause) }) });
 
 const unavailable = (cause: unknown) => new AgentUnavailable({ reason: String(cause) });
 
@@ -71,6 +98,9 @@ const handlers = (env: Env) =>
 			}),
 		ReadFile: ({ name, path }) =>
 			call(() => agentFor(env, name).readFile(name, path)).pipe(Effect.flatMap(decodeRead), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
+		Body: () => bodyCall(() => bodyOf(env).state()).pipe(Effect.flatMap(decodeBodyState), Effect.catchTag("SchemaError", Effect.die)),
+		Rollback: ({ generation }) =>
+			bodyCall(() => bodyOf(env).rollback(generation)).pipe(Effect.flatMap(decodeRollback), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
 	});
 
 const buildRpcHandler = (env: Env) =>
@@ -116,17 +146,30 @@ const socket = (request: Request, env: Env, rawName: string): Promise<Response> 
 		},
 	});
 
-const page = (request: Request, env: Env, rawName: string): Promise<Response> =>
-	Option.match(decodeName(rawName), {
-		onNone: () => env.ASSETS.fetch(request),
-		onSome: () => env.ASSETS.fetch(new Request(new URL("/", request.url), request)),
+const MAX_REPORT = 4096;
+
+const CONSOLE_BODY = `${KERNEL_PREFIX}/api/body`;
+
+const CONSOLE_RESEED = `${KERNEL_PREFIX}/api/reseed`;
+
+const CONSOLE_ROLLBACK = /^\/_kernel\/api\/rollback\/(\d+)$/;
+
+const report = async (request: Request, env: Env): Promise<Response> => {
+	const text = await request.text();
+
+	if (text.length > MAX_REPORT) return refuse(413, "report too large");
+
+	return Option.match(decodeReport(text), {
+		onNone: () => refuse(400, "bad report"),
+		onSome: async ({ generation, ok, detail }) => new Response(await bodyOf(env).report(generation, ok, detail)),
 	});
+};
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 const isLocalDev = (request: Request, env: Env): boolean => env.LOCAL_DEV_WITHOUT_ACCESS === "1" && LOCAL_HOSTS.has(new URL(request.url).hostname);
 
-const NOT_CONFIGURED = "tardigrade is locked: set ACCESS_TEAM_DOMAIN and ACCESS_AUD and put the hostname behind Cloudflare Access. See README, Deploy.";
+const NOT_CONFIGURED = "planarian is locked: set ACCESS_TEAM_DOMAIN and ACCESS_AUD and put the hostname behind Cloudflare Access. See README, Deploy.";
 
 const admit = (request: Request, env: Env): Promise<Option.Option<Response>> => {
 	if (isLocalDev(request, env)) return Promise.resolve(Option.none());
@@ -155,8 +198,9 @@ export default {
 
 		const { pathname } = new URL(request.url);
 		const isWrite = request.method !== "GET" || request.headers.get("Upgrade") === "websocket";
+		const isKernel = pathname.startsWith(`${KERNEL_PREFIX}/`);
 
-		if (pathname.startsWith("/api/") && isWrite && !isSameOrigin(request)) return refuse(403, "cross-origin request refused");
+		if (isWrite && !isSameOrigin(request)) return refuse(403, "cross-origin request refused");
 
 		if (pathname === RPC_PATH || pathname === `${RPC_PATH}/`) return rpcHandler(env)(rpcRequest(request), Context.empty());
 
@@ -166,10 +210,24 @@ export default {
 			return request.headers.get("Upgrade") === "websocket" ? socket(request, env, socketMatch[1]) : refuse(426, "expected websocket");
 		}
 
-		if (pathname.startsWith("/api/")) return refuse(404, "not found");
+		if (pathname === BODY_SOCKET_PATH) return request.headers.get("Upgrade") === "websocket" ? bodyOf(env).fetch(request) : refuse(426, "expected websocket");
 
-		const pageMatch = PAGE_ROUTE.exec(pathname);
+		if (pathname === REPORT_PATH && request.method === "POST") return report(request, env);
 
-		return pageMatch?.[1] !== undefined && request.method === "GET" ? page(request, env, pageMatch[1]) : env.ASSETS.fetch(request);
+		if (pathname === CONSOLE_BODY && request.method === "GET") return bodyOf(env).state().then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
+
+		if (pathname === CONSOLE_RESEED && request.method === "POST") return bodyOf(env).reseed().then((text) => new Response(text));
+
+		const rollbackMatch = CONSOLE_ROLLBACK.exec(pathname);
+
+		if (rollbackMatch?.[1] !== undefined && request.method === "POST") return bodyOf(env).rollback(Number(rollbackMatch[1])).then((json) => new Response(json));
+
+		const asset = kernelAsset(pathname);
+
+		if (Option.isSome(asset)) return asset.value;
+
+		if (isKernel) return refuse(404, "not found");
+
+		return bodyOf(env).fetch(request);
 	},
 } satisfies ExportedHandler<Env>;
