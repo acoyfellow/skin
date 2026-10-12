@@ -3,3 +3,5 @@ node_modules
 dist
 .dev.vars
 kernel/seed.gen.json
+wrangler.deploy.jsonc
+.env.deploy

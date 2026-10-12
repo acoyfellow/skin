@@ -15,7 +15,7 @@
   "scripts": {
     "seed": "node scripts/seed.mjs",
     "dev": "npm run seed && node scripts/dev.mjs",
-    "deploy": "npm run seed && wrangler deploy",
+    "deploy": "node scripts/deploy.mjs",
     "typecheck": "npm run seed && tsc -p . && tsc -p body",
     "lint": "oxlint",
     "test": "npm run seed && vitest run",

@@ -71,10 +71,18 @@ BASE=http://localhost:8790 npm run e2e
 
 skin is locked by default: every request must carry a Cloudflare Access token, which the Worker verifies itself, and there is no `workers.dev` or preview URL. Worker Loader must be enabled on the account.
 
-1. Add your hostname to `wrangler.jsonc`: `"routes": [{ "pattern": "skin.example.com", "custom_domain": true }]`.
-2. Create a self-hosted Access application for it with one Allow policy for your email. For CI, add a Service Auth policy and a service token.
-3. Set `vars.ACCESS_AUD` to the application's AUD tag and `vars.ACCESS_TEAM_DOMAIN` to `https://<team>.cloudflareaccess.com`.
-4. `npm run deploy`, then `BASE=https://skin.example.com CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… npm run e2e`.
+1. Create a self-hosted Access application for your hostname. Allow whoever should get their own app (an email domain works). For CI, add a Service Auth policy with two service tokens, one per test identity.
+2. Deploy with the hostname and the application's values in the environment. Nothing internal is committed: `scripts/deploy.mjs` writes a gitignored `wrangler.deploy.jsonc`.
+
+   ```sh
+   SKIN_HOST=skin.example.com ACCESS_TEAM_DOMAIN=https://<team>.cloudflareaccess.com ACCESS_AUD=<aud tag> npm run deploy
+   ```
+
+3. Run the end-to-end check against it as two people:
+
+   ```sh
+   BASE=https://skin.example.com CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… CF_ACCESS_CLIENT_ID_B=… CF_ACCESS_CLIENT_SECRET_B=… npm run e2e
+   ```
 
 ## What it deliberately does not do
 
