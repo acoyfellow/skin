@@ -18,6 +18,7 @@
 		"remote": true
 	},
 	"worker_loaders": [{ "binding": "LOADER" }],
+	"version_metadata": { "binding": "CF_VERSION_METADATA" },
 	"rules": [{ "type": "Text", "globs": ["**/*.css"], "fallthrough": true }, { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }],
 	"durable_objects": {
 		"bindings": [

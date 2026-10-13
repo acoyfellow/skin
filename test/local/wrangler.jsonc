@@ -13,6 +13,9 @@
 		"MODEL": "@cf/zai-org/glm-5.3",
 		"LOCAL_DEV_WITHOUT_ACCESS": "1"
 	},
+	"version_metadata": {
+		"binding": "CF_VERSION_METADATA"
+	},
 	"worker_loaders": [
 		{
 			"binding": "LOADER"

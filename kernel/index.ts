@@ -35,6 +35,7 @@ type Env = AgentEnv & {
 	readonly ACCESS_TEAM_DOMAIN?: string;
 	readonly ACCESS_AUD?: string;
 	readonly LOCAL_DEV_WITHOUT_ACCESS?: string;
+	readonly CF_VERSION_METADATA?: WorkerVersionMetadata;
 };
 
 const SOCKET_ROUTE = /^\/_kernel\/api\/c\/([^/]+)\/ws$/;
@@ -237,7 +238,7 @@ const admit = (request: Request, env: Env): Promise<Admission> => {
 	});
 };
 
-const whoAmI = (person: Person) => Response.json({ user: person.user, email: Option.getOrNull(person.email) });
+const whoAmI = (person: Person, env: Env) => Response.json({ user: person.user, email: Option.getOrNull(person.email), version: env.CF_VERSION_METADATA?.id ?? "unknown" });
 
 export default {
 	async fetch(request, env) {
@@ -263,7 +264,7 @@ export default {
 
 		if (pathname === BODY_SOCKET_PATH) return request.headers.get("Upgrade") === "websocket" ? bodyOf(env, user).fetch(request) : refuse(426, "expected websocket");
 
-		if (pathname === WHO_AM_I && request.method === "GET") return whoAmI(admission.person);
+		if (pathname === WHO_AM_I && request.method === "GET") return whoAmI(admission.person, env);
 
 		if (pathname === TEST_ABORT_BODY && request.method === "POST" && isLocalDev(request, env)) {
 			const aborted = await bodyOf(env, user).abortForTest().then(() => "not aborted", (cause: unknown) => `aborted: ${String(cause)}`);

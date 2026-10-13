@@ -20,7 +20,8 @@
     "001 local workerd: runtime build of a Foldkit + Effect app takes 10.0-11.2 s over 4 runs; caching node_modules does not help; Tailwind v4 compiles in 8-10 ms; Loader isolate answers in about 45 ms (receipts/001-runtime-build.local.jsonl)",
     "e2e local (workerd, real Chromium): 8/8 scenarios in 87 s. Rejected: syntax error at bundle (84 ms), server throwing on start at boot, broken trim at checks (names the failing story). A page that crashes only in the browser passed the server gate, then the crash guard reported it on first load and the kernel rolled back to the last good generation. Rollback to the seed reset the draft; a note stored through STORE survived every generation (receipts/e2e-local.json)",
     "e2e local: 9/9 in 100 s with two identities. Person B grew their own seed generation and saw none of A's 6 generations, files, or notes; A's app was unchanged; A and B resolved to different user ids (receipts/e2e-local.json)",
-    "Deployed run 1 (ec99d7c): 8/9, crash report lost behind Access. Deployed run 2 (b0f9c31): 9/9 in 63 s."
+    "Deployed run 1 (ec99d7c): 8/9, crash report lost behind Access. Deployed run 2 (b0f9c31): 9/9 in 63 s.",
+    "2026-10-13: the deployed receipt in commit 5cecc28 ('img-gen assets, console reset') does NOT prove f269419. The deploy from the Mac failed (wrangler upload EPIPE x4) and the e2e ran against the previous live version 0c80ff82. Fix: e2e receipts now record the tested Worker version (version_metadata), and CI fails if it differs from the version just deployed."
   ],
   "openQuestions": [
     "Client bundle is 869 KB: prebundle effect + foldkit as a vendor import map?",

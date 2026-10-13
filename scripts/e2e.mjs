@@ -339,9 +339,16 @@ await scenario("another person gets their own app, untouched by everything above
 
 await browser.close();
 
-const passed = results.filter((result) => result.pass).length;
+let passed = results.filter((result) => result.pass).length;
 
-const receipt = { target: TARGET, base: TARGET === "local" ? BASE : "(deployed, behind Access)", at: new Date().toISOString(), nonce: NONCE, passed, total: results.length, ms: Date.now() - started, results };
+const version = await http("GET", "/_kernel/api/me").then((response) => JSON.parse(response.text).version).catch(() => "unknown");
+
+if (process.env.EXPECT_VERSION && process.env.EXPECT_VERSION !== version) {
+	results.push({ name: "the run tested the version that was just deployed", expected: process.env.EXPECT_VERSION, observed: version, pass: false, ms: 0 });
+	passed = results.filter((result) => result.pass).length;
+}
+
+const receipt = { target: TARGET, version, commit: process.env.GITHUB_SHA ?? process.env.COMMIT ?? "unknown", base: TARGET === "local" ? BASE : "(deployed, behind Access)", at: new Date().toISOString(), nonce: NONCE, passed, total: results.length, ms: Date.now() - started, results };
 
 mkdirSync("receipts", { recursive: true });
 

@@ -64,7 +64,13 @@ jobs:
           SKIN_HOST: ${{ vars.SKIN_HOST }}
           ACCESS_TEAM_DOMAIN: ${{ vars.ACCESS_TEAM_DOMAIN }}
           ACCESS_AUD: ${{ vars.ACCESS_AUD }}
-        run: npm run deploy
+        run: |
+          set -o pipefail
+          npm run deploy 2>&1 | tee deploy.log
+          version=$(grep -oE 'Current Version ID: [0-9a-f-]+' deploy.log | awk '{print $4}')
+          test -n "$version"
+          echo "DEPLOYED_VERSION=$version" >> "$GITHUB_ENV"
+          echo "deployed version $version"
       - name: Anonymous requests are sent to the Access login
         run: |
           code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ vars.SKIN_HOST }}/")
@@ -79,6 +85,7 @@ jobs:
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           CF_ACCESS_CLIENT_ID_B: ${{ secrets.CF_ACCESS_CLIENT_ID_B }}
           CF_ACCESS_CLIENT_SECRET_B: ${{ secrets.CF_ACCESS_CLIENT_SECRET_B }}
+          EXPECT_VERSION: ${{ env.DEPLOYED_VERSION }}
         run: node scripts/e2e.mjs
       - if: always()
         name: Summary
@@ -87,7 +94,7 @@ jobs:
             const fs = require("fs");
             if (!fs.existsSync("receipts/e2e-deployed.json")) process.exit(0);
             const r = JSON.parse(fs.readFileSync("receipts/e2e-deployed.json", "utf8"));
-            const lines = [`### Deployed e2e: ${r.passed}/${r.total} in ${Math.round(r.ms / 1000)} s`, "", ...r.results.map((x) => `- ${x.pass ? "✅" : "❌"} ${x.name}${x.pass ? "" : ` — ${String(x.observed).slice(0, 300)}`}`)];
+            const lines = [`### Deployed e2e: ${r.passed}/${r.total} in ${Math.round(r.ms / 1000)} s against version ${r.version}`, "", ...r.results.map((x) => `- ${x.pass ? "✅" : "❌"} ${x.name}${x.pass ? "" : ` — ${String(x.observed).slice(0, 300)}`}`)];
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
           '
       - if: always()
