@@ -1,11 +1,11 @@
 {
   "target": "deployed",
   "base": "(deployed, behind Access)",
-  "at": "2026-10-13T00:27:48.465Z",
-  "nonce": "ekd87g",
+  "at": "2026-10-13T02:05:34.834Z",
+  "nonce": "a91bmq",
   "passed": 10,
   "total": 10,
-  "ms": 59421,
+  "ms": 58062,
   "results": [
     {
       "name": "the seed grows into a live generation that starts in a real browser",
@@ -21,7 +21,7 @@
         "errors": []
       },
       "pass": true,
-      "ms": 10117
+      "ms": 8737
     },
     {
       "name": "a change that does not bundle is rejected and the live app is untouched",
@@ -33,19 +33,19 @@
         "served": 1
       },
       "pass": true,
-      "ms": 549
+      "ms": 634
     },
     {
       "name": "a server that throws when it starts is rejected",
       "expected": "ship rejected at boot",
       "observed": {
-        "generation": 10,
+        "generation": 13,
         "failedCheck": "boot",
-        "detail": "GET /_body/health threw: Error: e2e ekd87g: the server refuses to start",
+        "detail": "GET /_body/health threw: Error: e2e a91bmq: the server refuses to start",
         "live": 1
       },
       "pass": true,
-      "ms": 12573
+      "ms": 12193
     },
     {
       "name": "a change that breaks a behavior the checks cover is rejected",
@@ -59,7 +59,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 645
+      "ms": 478
     },
     {
       "name": "data the server stores survives a new generation and a rollback",
@@ -68,7 +68,7 @@
         "status": 201
       },
       "pass": true,
-      "ms": 658
+      "ms": 558
     },
     {
       "name": "a version interrupted mid-build by a kill never sticks, and shipping again makes it live",
@@ -83,42 +83,42 @@
       "name": "a good change goes live and renders in the browser",
       "expected": "ship live; / serves the new generation; the page shows the change",
       "observed": {
-        "generation": 11,
-        "served": 11,
+        "generation": 14,
+        "served": 14,
         "checks": [
-          "bundle:true:839ms",
-          "boot:true:140ms",
+          "bundle:true:1102ms",
+          "boot:true:110ms",
           "checks:true:0ms",
           "page:true:0ms"
         ],
         "report": {
-          "generation": 11,
+          "generation": 14,
           "ok": true,
           "detail": "rendered"
         }
       },
       "pass": true,
-      "ms": 18879
+      "ms": 19862
     },
     {
       "name": "a page that crashes in the browser is rolled back by the kernel on its own",
       "expected": "ship live (the server gate cannot see it); the first browser load reports a crash; live returns to the last good generation",
       "observed": {
-        "crashed": 12,
+        "crashed": 15,
         "report": {
-          "generation": 12,
+          "generation": 15,
           "ok": false,
-          "detail": "Uncaught Error: e2e ekd87g: the page crashes on start"
+          "detail": "Uncaught Error: e2e a91bmq: the page crashes on start"
         },
         "delivered": [
           200
         ],
-        "liveAfter": 11,
+        "liveAfter": 14,
         "status": "rejected",
-        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 11: Uncaught Error: e2e ekd87g: the page crashes on start"
+        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 14: Uncaught Error: e2e a91bmq: the page crashes on start"
       },
       "pass": true,
-      "ms": 13070
+      "ms": 12723
     },
     {
       "name": "rolling back makes the seed live again and resets the draft to match",
@@ -126,10 +126,10 @@
       "observed": {
         "live": 1,
         "served": 1,
-        "notes": 3
+        "notes": 4
       },
       "pass": true,
-      "ms": 937
+      "ms": 864
     },
     {
       "name": "another person gets their own app, untouched by everything above",
@@ -137,7 +137,7 @@
       "observed": {
         "a": {
           "user": "ueb4c6186d54bf7fb206b",
-          "generations": 12,
+          "generations": 15,
           "live": 1
         },
         "b": {
@@ -148,7 +148,7 @@
         }
       },
       "pass": true,
-      "ms": 1590
+      "ms": 1589
     }
   ]
 }
