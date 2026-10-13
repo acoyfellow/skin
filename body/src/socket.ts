@@ -50,16 +50,23 @@ const bufferFrames = (socket: WebSocket, frames: FrameQueue): void => {
 const connect = (name: ConversationName, frames: FrameQueue) =>
 	Effect.callback<WebSocket, SocketFailed>((resume) => {
 		const socket = new WebSocket(socketUrl(name));
-		const opened = () => resume(Effect.succeed(socket));
+
+		const opened = () => {
+			socket.removeEventListener("close", failed);
+			resume(Effect.succeed(socket));
+		};
+
 		const failed = () => resume(Effect.fail(new SocketFailed({ reason: "could not connect" })));
 
 		bufferFrames(socket, frames);
 		socket.addEventListener("open", opened, { once: true });
 		socket.addEventListener("error", failed, { once: true });
+		socket.addEventListener("close", failed, { once: true });
 
 		return Effect.sync(() => {
 			socket.removeEventListener("open", opened);
 			socket.removeEventListener("error", failed);
+			socket.removeEventListener("close", failed);
 			socket.close();
 		});
 	}).pipe(
