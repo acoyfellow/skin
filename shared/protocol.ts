@@ -39,7 +39,11 @@ export type BodyState = typeof BodyState.Type;
 
 export const BodyStateJson = Schema.fromJsonString(Schema.toCodecJson(BodyState));
 
-export const ConversationSummary = Schema.Struct({ name: Schema.String, title: Schema.String, updatedAt: Schema.Number });
+export const ConversationState = Schema.Literals(["working", "idle", "failed"]);
+
+export type ConversationState = typeof ConversationState.Type;
+
+export const ConversationSummary = Schema.Struct({ name: Schema.String, title: Schema.String, updatedAt: Schema.Number, state: ConversationState });
 
 export type ConversationSummary = typeof ConversationSummary.Type;
 

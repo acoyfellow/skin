@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Option, Schema } from "effect";
-import { type BodyState, BodyStateJson, RollbackOutcomeJson, type ShipReport, ShipReportJson } from "../shared/protocol";
+import { type BodyState, BodyStateJson, type ConversationState, RollbackOutcomeJson, type ShipReport, ShipReportJson } from "../shared/protocol";
 import type { Body } from "./body";
 import type { UserId } from "./identity";
 
@@ -13,6 +13,7 @@ export type RepoFiles = {
 	readonly ship: (message: string) => Effect.Effect<ShipReport, BodyUnavailable>;
 	readonly rollback: (generation: number) => Effect.Effect<string, BodyUnavailable>;
 	readonly state: Effect.Effect<BodyState, BodyUnavailable>;
+	readonly markConversation: (name: string, state: ConversationState) => Effect.Effect<void, BodyUnavailable>;
 };
 
 const decodeState = Schema.decodeUnknownEffect(BodyStateJson);
@@ -47,6 +48,7 @@ export const bodyFiles = (body: () => BodyStub): RepoFiles => ({
 			),
 		),
 	state: call(() => body().state()).pipe(Effect.flatMap((json) => Effect.mapError(decodeState(json), unreadable))),
+	markConversation: (name, state) => call(() => body().markConversation(name, state)),
 });
 
 export class Repo extends Context.Service<Repo, RepoFiles>()("skin/Repo") {

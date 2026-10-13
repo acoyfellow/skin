@@ -38,8 +38,16 @@ const withActivity = (model: Model): Model => {
 	return key === model.activityKey ? model : modifyFields(model, { activityKey: () => key, activitySince: () => model.now });
 };
 
+const conversationStartedAt = (model: Model): Option.Option<number> =>
+	Option.map(Option.fromNullishOr(model.conversations.find((conversation) => conversation.name === model.name)), (conversation) => conversation.updatedAt);
+
+const withTurn = (model: Model, busy: boolean): Model =>
+	modifyFields(model, {
+		turnSince: (since) => (busy ? Option.orElse(since, () => Option.some(Option.getOrElse(conversationStartedAt(model), () => model.now))) : Option.none()),
+	});
+
 const settlePhase = (model: Model, busy: boolean): Model =>
-	modifyFields(model, { busy: () => busy, phase: () => (busy ? Phase.Working() : Phase.Idle()) });
+	withTurn(modifyFields(model, { busy: () => busy, phase: () => (busy ? Phase.Working() : Phase.Idle()) }), busy);
 
 const phaseFor = (snapshot: Snapshot, connected: boolean): Phase =>
 	Option.match(snapshot.killedAt, {
@@ -59,6 +67,7 @@ const applySnapshot = (model: Model, snapshot: Snapshot): Model =>
 		events: () => snapshot.events,
 		localNotes: () => [],
 		phase: () => phaseFor(snapshot, model.connected),
+		turnSince: (since) => (snapshot.busy ? Option.orElse(since, () => Option.some(Option.getOrElse(conversationStartedAt(model), () => model.now))) : Option.none()),
 	});
 
 const markKilled = (model: Model, killedAt: number): Model =>
@@ -78,7 +87,9 @@ const onFrame = (model: Model, frame: ServerFrame): UpdateReturn => {
 		}),
 	);
 
-	return refreshOpenFile(withActivity(next));
+	const refreshed = refreshOpenFile(withActivity(next));
+
+	return next.busy === model.busy ? refreshed : { model: refreshed.model, commands: [...refreshed.commands, LoadConversations()] };
 };
 
 const send = (model: Model, text: string): UpdateReturn => {
@@ -91,6 +102,7 @@ const send = (model: Model, text: string): UpdateReturn => {
 		busy: () => true,
 		phase: () => Phase.Working(),
 		blocks: (blocks) => [...blocks, UserBlock.make({ text: trimmed })],
+		turnSince: () => Option.some(model.now),
 	});
 
 	return { model: withActivity(pending), commands: [Send({ name: model.name, text: trimmed }), ShowConversation({ name: model.name })] };
@@ -136,6 +148,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 			}),
 		ToggledThought: ({ key }) => ({ model: modifyFields(model, { openThoughts: (open) => toggled(open, key) }) }),
 		Ticked: ({ now }) => ({ model: modifyFields(model, { now: () => now }) }),
+		PolledConversations: () => ({ model, commands: [LoadConversations()] }),
 		CompletedNavigation: () => ({ model }),
 		LoadedConversations: ({ conversations }) => ({ model: modifyFields(model, { conversations: () => conversations, conversationsError: () => Option.none() }) }),
 		FailedConversations: ({ reason }) => ({ model: modifyFields(model, { conversationsError: () => Option.some(reason) }) }),

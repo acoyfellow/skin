@@ -26,4 +26,12 @@ export const activityRow = (model: Model): ActivityRow =>
 
 export const activityKey = (model: Model): string => activityRow(model).label;
 
+export const clock = (seconds: number): string => {
+	const minutes = Math.floor(seconds / 60);
+
+	return minutes === 0 ? `${seconds}s` : `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+};
+
+export const turnSeconds = (model: Model): Option.Option<number> => Option.map(model.turnSince, (since) => Math.max(0, Math.floor((model.now - since) / 1000)));
+
 export const elapsedSeconds = (model: Model): number => Math.max(0, Math.floor((model.now - model.activitySince) / 1000));

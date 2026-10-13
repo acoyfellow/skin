@@ -23,8 +23,25 @@ export const ago = (now: number, at: number): string => {
 	return `${Math.floor(elapsed / DAY)} d ago`;
 };
 
-const row = (h: H, model: Model, conversation: Model["conversations"][number]): Html => {
+type Conversation = Model["conversations"][number];
+
+const STATE_DOT: Readonly<Record<Conversation["state"], string>> = {
+	working: "bg-life animate-pulse",
+	idle: "bg-ok",
+	failed: "bg-bad",
+};
+
+const STATE_LABEL: Readonly<Record<Conversation["state"], string>> = {
+	working: "working",
+	idle: "idle",
+	failed: "stopped with an error",
+};
+
+const stateOf = (model: Model, conversation: Conversation): Conversation["state"] => (conversation.name === model.name && model.busy ? "working" : conversation.state);
+
+const row = (h: H, model: Model, conversation: Conversation): Html => {
 	const current = conversation.name === model.name;
+	const state = stateOf(model, conversation);
 
 	return h.li(
 		[h.Class(`group flex items-center gap-1 rounded-md ${current ? "bg-raised" : "hover:bg-raised"}`), h.DataAttribute("conversation", conversation.name)],
@@ -32,8 +49,14 @@ const row = (h: H, model: Model, conversation: Model["conversations"][number]): 
 			h.button(
 				[h.Type("button"), h.Class("min-w-0 flex-1 px-2.5 py-2 text-left"), h.AriaCurrent(current ? "page" : "false"), h.OnClick(Message.ClickedConversation({ name: conversation.name }))],
 				[
-					h.span([h.Class(`block truncate text-[13px] ${current ? "font-medium" : ""}`)], [conversation.title === "" ? "Untitled chat" : conversation.title]),
-					h.span([h.Class("block text-[11px] text-faint")], [ago(model.now, conversation.updatedAt)]),
+					h.span(
+						[h.Class("flex items-center gap-2")],
+						[
+							h.i([h.Class(`inline-block size-2 flex-none rounded-full ${STATE_DOT[state]}`), h.Title(STATE_LABEL[state]), h.DataAttribute("state", state)], []),
+							h.span([h.Class(`truncate text-[13px] ${current ? "font-medium" : ""}`)], [conversation.title === "" ? "Untitled chat" : conversation.title]),
+						],
+					),
+					h.span([h.Class("block pl-4 text-[11px] text-faint")], [state === "working" ? `working · started ${ago(model.now, conversation.updatedAt)}` : ago(model.now, conversation.updatedAt)]),
 				],
 			),
 			h.button(

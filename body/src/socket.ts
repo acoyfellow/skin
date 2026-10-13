@@ -9,6 +9,8 @@ const CONNECT_TIMEOUT = Duration.seconds(5);
 
 const TICK = Duration.millis(250);
 
+const CHAT_POLL = Duration.seconds(4);
+
 type FrameQueue = Queue.Queue<ServerFrame, Cause.Done>;
 
 type Connection = { readonly socket: WebSocket; readonly frames: FrameQueue };
@@ -102,6 +104,13 @@ export const subscriptions = Subscription.make<Model, Message, AgentSocketServic
 				connected
 					? Stream.unwrap(AgentSocket.get.pipe(Effect.map(framesOf), Effect.catchTag("ResourceNotAvailable", () => Effect.succeed(Stream.empty))))
 					: Stream.empty,
+		},
+	),
+	chats: entry(
+		{ anyWorking: Schema.Boolean },
+		{
+			modelToDependencies: (model) => ({ anyWorking: model.busy || model.conversations.some((conversation) => conversation.state === "working") }),
+			dependenciesToStream: ({ anyWorking }) => (anyWorking ? Stream.tick(CHAT_POLL).pipe(Stream.map(() => Message.PolledConversations())) : Stream.empty),
 		},
 	),
 	clock: entry(

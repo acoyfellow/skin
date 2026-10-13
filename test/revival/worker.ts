@@ -48,6 +48,7 @@ const rejectingPushes = Layer.succeed(Repo, {
 	write: down,
 	remove: down,
 	ship: down,
+	markConversation: down,
 	rollback: down,
 	state: down(),
 });

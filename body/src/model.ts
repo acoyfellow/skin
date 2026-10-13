@@ -56,6 +56,7 @@ export const Model = Schema.Struct({
 	versionFilter: VersionFilter,
 	now: Schema.Number,
 	activitySince: Schema.Number,
+	turnSince: Schema.Option(Schema.Number),
 	activityKey: Schema.String,
 });
 

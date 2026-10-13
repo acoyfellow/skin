@@ -8,6 +8,7 @@ import {
 	type BodyState,
 	BodyStateJson,
 	ConversationListJson,
+	type ConversationState,
 	type Check,
 	type Generation,
 	GenerationRejected,
@@ -76,6 +77,10 @@ const encodeRollback = Schema.encodeSync(RollbackOutcomeJson);
 const encodeFrame = Schema.encodeSync(ServerFrameJson);
 
 const encodeConversations = Schema.encodeSync(ConversationListJson);
+
+const CONVERSATION_STATES: ReadonlyArray<ConversationState> = ["working", "idle", "failed"];
+
+const conversationState = (value: string): ConversationState => CONVERSATION_STATES.find((state) => state === value) ?? "idle";
 
 const decodeChecks = Schema.decodeUnknownSync(ChecksJson);
 
@@ -228,6 +233,12 @@ export class Body extends DurableObject<BodyEnv> {
 		return this.ctx.storage.sql.exec(query, ...bindings).toArray();
 	}
 
+	private addColumn(table: string, column: string, definition: string): void {
+		const exists = this.sql(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`, column).length > 0;
+
+		if (!exists) this.sql(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+	}
+
 	private migrate(): void {
 		this.sql("CREATE TABLE IF NOT EXISTS blobs (hash TEXT PRIMARY KEY, content TEXT NOT NULL)");
 		this.sql("CREATE TABLE IF NOT EXISTS draft (path TEXT PRIMARY KEY, hash TEXT NOT NULL)");
@@ -238,6 +249,7 @@ export class Body extends DurableObject<BodyEnv> {
 		this.sql("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 		this.sql("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 		this.sql("CREATE TABLE IF NOT EXISTS conversations (name TEXT PRIMARY KEY, title TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)");
+		this.addColumn("conversations", "state", "TEXT NOT NULL DEFAULT 'idle'");
 
 		this.sql("UPDATE generations SET status = 'rejected', note = ? WHERE status = 'building'", INTERRUPTED);
 
@@ -584,10 +596,21 @@ export class Body extends DurableObject<BodyEnv> {
 		this.sql("INSERT INTO conversations (name, title, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET updated_at = excluded.updated_at", name, title, now, now);
 	}
 
+	markConversation(name: string, state: ConversationState): void {
+		this.sql("UPDATE conversations SET state = ?, updated_at = ? WHERE name = ?", state, Date.now(), name);
+	}
+
 	conversations(): string {
-		return encodeConversations(
-			this.sql("SELECT name, title, updated_at FROM conversations ORDER BY updated_at DESC LIMIT 200").map((row) => ({ name: text(row, "name"), title: text(row, "title"), updatedAt: num(row, "updated_at") })),
-		);
+		return encodeConversations(this.conversationRows());
+	}
+
+	private conversationRows() {
+		return this.sql("SELECT name, title, updated_at, state FROM conversations ORDER BY updated_at DESC LIMIT 200").map((row) => ({
+			name: text(row, "name"),
+			title: text(row, "title"),
+			updatedAt: num(row, "updated_at"),
+			state: conversationState(text(row, "state")),
+		}));
 	}
 
 	forgetConversation(name: string): void {

@@ -32,6 +32,7 @@ export const Message = defineMessageUnion({
 	ToggledVersion: { generation: Schema.Number },
 	ChoseVersionFilter: { filter: VersionFilter },
 	ClosedFile: {},
+	PolledConversations: {},
 });
 
 export type Message = typeof Message.Type;

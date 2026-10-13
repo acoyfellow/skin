@@ -48,6 +48,7 @@ const inStorage = (kv: SyncKvStorage): RepoFiles => {
 	});
 
 	return {
+		markConversation: () => Effect.void,
 		list: Effect.sync(() => Object.keys(load().files).sort()),
 		read: (path) => cleanPath(path).pipe(Effect.map((file) => Option.fromNullishOr(load().files[file])), Effect.orElseSucceed(() => Option.none())),
 		write: (path, content) =>

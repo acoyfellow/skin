@@ -2,7 +2,7 @@ import { Option } from "effect";
 import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message";
 import { type Model, Phase } from "../model";
-import { activityRow, elapsedSeconds } from "./activity";
+import { activityRow, clock, elapsedSeconds, turnSeconds } from "./activity";
 import { chatsPanel } from "./chats";
 import { fileViewer, filesPanel } from "./files";
 import { transcript } from "./transcript";
@@ -73,7 +73,11 @@ const activity = (h: H, model: Model): Html => {
 		[
 			h.span([h.Class(`size-3 rounded-full border-[1.5px] ${row.dead ? "border-bad" : "animate-spin border-line-strong border-t-ink"}`), h.AriaHidden(true)], []),
 			h.span([], [row.label]),
-			h.span([h.Class("ml-auto text-faint")], [`${elapsedSeconds(model)}s`]),
+			h.span([h.Class("ml-auto font-mono text-[12px] text-faint"), h.Title("This step")], [clock(elapsedSeconds(model))]),
+			...Option.match(turnSeconds(model), {
+				onNone: () => [],
+				onSome: (seconds) => [h.span([h.Id("turn-timer"), h.Class("font-mono text-[12px] text-ink"), h.Title("Whole task so far")], [`task ${clock(seconds)}`])],
+			}),
 		],
 	);
 };
@@ -121,7 +125,7 @@ const conversation = (h: H, model: Model): Html =>
 	);
 
 export const view = (model: Model, h: H): Document => ({
-	title: model.busy ? "skin · working" : "skin",
+	title: Option.match(turnSeconds(model), { onNone: () => "skin", onSome: (seconds) => `skin · working ${clock(seconds)}` }),
 	body: h.div(
 		[h.Class("grid h-full grid-rows-[auto_1fr]")],
 		[

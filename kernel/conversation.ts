@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Option, Ref, Result, Schema, Stream } from "effect";
 import {
+	type ConversationState,
 	BackEvent,
 	BlocksFrame,
 	BusyFrame,
@@ -58,6 +59,7 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 				const pi = yield* Pi;
 				const { modelId: model } = yield* Model;
 				const driving = yield* Ref.make(false);
+				const failed = yield* Ref.make(false);
 				const live = yield* Ref.make<LiveState>({ value: Option.none(), changedAt: 0 });
 
 				const blocks = pi.blocks.pipe(Effect.orElseSucceed(() => []));
@@ -93,12 +95,19 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 					};
 				});
 
+				const mark = (state: ConversationState) =>
+					Effect.gen(function* () {
+						yield* pi.repo.markConversation(yield* store.name, state);
+					}).pipe(Effect.catchTag("BodyUnavailable", (error) => Effect.logWarning("could not record the chat state", error.reason)));
+
 				const fail = (reason: string) =>
 					Effect.gen(function* () {
 						yield* record(FailedEvent.make({ at: yield* now, afterBlock: yield* blockCount, reason }));
+						yield* Ref.set(failed, true);
 					});
 
 				const finish = Effect.gen(function* () {
+					yield* mark((yield* Ref.getAndSet(failed, false)) ? "failed" : "idle");
 					yield* store.clearPending;
 					yield* Ref.set(driving, false);
 					yield* Ref.set(live, { value: Option.none(), changedAt: yield* now });
@@ -125,6 +134,7 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 						if (yield* Ref.getAndSet(driving, true)) return;
 
 						yield* broadcast.send(BusyFrame.make({ busy: true }));
+						yield* mark("working");
 						yield* object.background(runToEnd(id, text));
 					});
 

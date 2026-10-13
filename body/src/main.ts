@@ -54,6 +54,7 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	versionFilter: "all",
 	now,
 	activitySince: now,
+	turnSince: Option.none(),
 	activityKey: "",
 });
 

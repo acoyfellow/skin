@@ -21,6 +21,7 @@ import { Message } from "./message";
 import { reconnectDelay } from "./socket";
 import { Phase } from "./model";
 import { update } from "./update";
+import { clock, turnSeconds } from "./view/activity";
 
 const name = ConversationName.make("c-story");
 
@@ -94,6 +95,7 @@ describe("connecting", () => {
 			update,
 			given(fresh),
 			message(frame(SnapshotFrame.make({ snapshot: snapshot({ busy: true, lives: 3 }) }))),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
 			model((current) => {
 				expect(current.phase._tag).toBe("Working");
 				expect(current.lives).toBe(3);
@@ -167,6 +169,7 @@ describe("restarts", () => {
 			given(fresh),
 			message(Message.SocketOpened()),
 			message(frame(SnapshotFrame.make({ snapshot: snapshot({ busy: true, lives: 2, events: [killed], killedAt: Option.some(5_000) }) }))),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
 			model((current) => {
 				expect(current.events).toEqual([killed]);
 				expect(current.phase).toEqual(Phase.Reviving({ killedAt: 5_000 }));
@@ -180,6 +183,7 @@ describe("restarts", () => {
 			given(fresh),
 			message(Message.SocketOpened()),
 			message(frame(SnapshotFrame.make({ snapshot: snapshot({ busy: true, lives: 2, events: [killed, back] }) }))),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
 			model((current) => {
 				expect(current.events).toEqual([killed, back]);
 				expect(current.phase._tag).toBe("Working");
@@ -223,11 +227,35 @@ describe("restarts", () => {
 		);
 	});
 
+	test("a task shows its whole running time, and every chat shows working, idle, or failed", () => {
+		story(
+			update,
+			given({ ...fresh, now: 10_000 }),
+			message(Message.ClickedExample({ text: "Build a page" })),
+			Command.resolve(Send, Message.SucceededSend()),
+			Command.resolve(ShowConversation, Message.CompletedNavigation()),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [{ name: "c-story", title: "Build a page", updatedAt: 10_000, state: "working" }, { name: "c-broken", title: "Dark", updatedAt: 5_000, state: "failed" }] })),
+			message(Message.Ticked({ now: 75_000 })),
+			model((current) => {
+				expect(turnSeconds(current)).toEqual(Option.some(65));
+				expect(clock(65)).toBe("1m 05s");
+				expect(current.conversations.map((conversation) => conversation.state)).toEqual(["working", "failed"]);
+			}),
+			message(frame(BusyFrame.make({ busy: false }))),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [{ name: "c-story", title: "Build a page", updatedAt: 80_000, state: "idle" }] })),
+			model((current) => {
+				expect(current.turnSince).toEqual(Option.none());
+				expect(current.conversations[0]?.state).toBe("idle");
+			}),
+		);
+	});
+
 	test("the run finishing ends the working state and keeps the reply", () => {
 		story(
 			update,
 			given(working),
 			message(frame(BusyFrame.make({ busy: false }))),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
 			message(frame(SnapshotFrame.make({ snapshot: snapshot({ blocks: [ReplyBlock.make({ text: "Done." })] }) }))),
 			model((current) => {
 				expect(current.phase._tag).toBe("Idle");
@@ -238,7 +266,7 @@ describe("restarts", () => {
 });
 
 describe("chats", () => {
-	const listed = update(fresh, Message.LoadedConversations({ conversations: [{ name: "c-other", title: "Make it dark", updatedAt: 900 }, { name: "c-story", title: "Add a clock", updatedAt: 800 }] })).model;
+	const listed = update(fresh, Message.LoadedConversations({ conversations: [{ name: "c-other", title: "Make it dark", updatedAt: 900, state: "idle" }, { name: "c-story", title: "Add a clock", updatedAt: 800, state: "idle" }] })).model;
 
 	test("deleting a chat removes it from the list at once and asks the server to forget it", () => {
 		story(
