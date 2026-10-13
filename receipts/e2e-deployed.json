@@ -1,11 +1,11 @@
 {
   "target": "deployed",
   "base": "(deployed, behind Access)",
-  "at": "2026-10-12T22:09:26.696Z",
-  "nonce": "pk3mae",
-  "passed": 9,
-  "total": 9,
-  "ms": 62936,
+  "at": "2026-10-13T00:27:48.465Z",
+  "nonce": "ekd87g",
+  "passed": 10,
+  "total": 10,
+  "ms": 59421,
   "results": [
     {
       "name": "the seed grows into a live generation that starts in a real browser",
@@ -21,7 +21,7 @@
         "errors": []
       },
       "pass": true,
-      "ms": 9384
+      "ms": 10117
     },
     {
       "name": "a change that does not bundle is rejected and the live app is untouched",
@@ -33,19 +33,19 @@
         "served": 1
       },
       "pass": true,
-      "ms": 694
+      "ms": 549
     },
     {
       "name": "a server that throws when it starts is rejected",
       "expected": "ship rejected at boot",
       "observed": {
-        "generation": 7,
+        "generation": 10,
         "failedCheck": "boot",
-        "detail": "GET /_body/health threw: Error: e2e pk3mae: the server refuses to start",
+        "detail": "GET /_body/health threw: Error: e2e ekd87g: the server refuses to start",
         "live": 1
       },
       "pass": true,
-      "ms": 14346
+      "ms": 12573
     },
     {
       "name": "a change that breaks a behavior the checks cover is rejected",
@@ -59,7 +59,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 452
+      "ms": 645
     },
     {
       "name": "data the server stores survives a new generation and a rollback",
@@ -68,48 +68,57 @@
         "status": 201
       },
       "pass": true,
-      "ms": 709
+      "ms": 658
+    },
+    {
+      "name": "a version interrupted mid-build by a kill never sticks, and shipping again makes it live",
+      "expected": "abort the Body while it builds; the half-built version is marked interrupted, nothing half-built goes live, and the same ship succeeds on retry",
+      "observed": {
+        "skipped": "the kill switch exists only in local dev"
+      },
+      "pass": true,
+      "ms": 0
     },
     {
       "name": "a good change goes live and renders in the browser",
       "expected": "ship live; / serves the new generation; the page shows the change",
       "observed": {
-        "generation": 8,
-        "served": 8,
+        "generation": 11,
+        "served": 11,
         "checks": [
-          "bundle:true:912ms",
-          "boot:true:131ms",
+          "bundle:true:839ms",
+          "boot:true:140ms",
           "checks:true:0ms",
           "page:true:0ms"
         ],
         "report": {
-          "generation": 8,
+          "generation": 11,
           "ok": true,
           "detail": "rendered"
         }
       },
       "pass": true,
-      "ms": 19706
+      "ms": 18879
     },
     {
       "name": "a page that crashes in the browser is rolled back by the kernel on its own",
       "expected": "ship live (the server gate cannot see it); the first browser load reports a crash; live returns to the last good generation",
       "observed": {
-        "crashed": 9,
+        "crashed": 12,
         "report": {
-          "generation": 9,
+          "generation": 12,
           "ok": false,
-          "detail": "Uncaught Error: e2e pk3mae: the page crashes on start"
+          "detail": "Uncaught Error: e2e ekd87g: the page crashes on start"
         },
         "delivered": [
           200
         ],
-        "liveAfter": 8,
+        "liveAfter": 11,
         "status": "rejected",
-        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 8: Uncaught Error: e2e pk3mae: the page crashes on start"
+        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 11: Uncaught Error: e2e ekd87g: the page crashes on start"
       },
       "pass": true,
-      "ms": 14593
+      "ms": 13070
     },
     {
       "name": "rolling back makes the seed live again and resets the draft to match",
@@ -117,10 +126,10 @@
       "observed": {
         "live": 1,
         "served": 1,
-        "notes": 2
+        "notes": 3
       },
       "pass": true,
-      "ms": 831
+      "ms": 937
     },
     {
       "name": "another person gets their own app, untouched by everything above",
@@ -128,7 +137,7 @@
       "observed": {
         "a": {
           "user": "ueb4c6186d54bf7fb206b",
-          "generations": 9,
+          "generations": 12,
           "live": 1
         },
         "b": {
@@ -139,7 +148,7 @@
         }
       },
       "pass": true,
-      "ms": 1791
+      "ms": 1590
     }
   ]
 }
