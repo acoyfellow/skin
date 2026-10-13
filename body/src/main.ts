@@ -4,7 +4,7 @@ import { ConversationName } from "./kernel/protocol";
 import { LoadConversations, ShowConversation } from "./command";
 import type { Message } from "./message";
 import type { AgentClient } from "./rpc";
-import { loadDraft } from "./composer";
+import { loadDraft, NEW_CHAT_DRAFT } from "./composer";
 import { type Model, OpenFile, Phase } from "./model";
 
 const decodeName = Schema.decodeUnknownOption(ConversationName);
@@ -27,7 +27,7 @@ export const flags: Effect.Effect<Flags> = Effect.gen(function* () {
 	});
 });
 
-export const initialModel = ({ name, now }: Flags): Model => ({
+export const initialModel = ({ name, isNew, now }: Flags): Model => ({
 	name,
 	phase: Phase.Connecting(),
 	connected: false,
@@ -47,7 +47,7 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	filesError: Option.none(),
 	events: [],
 	localNotes: [],
-	draft: loadDraft(name, now),
+	draft: loadDraft(isNew ? NEW_CHAT_DRAFT : name, now),
 	openFile: OpenFile.Closed(),
 	filesPanelOpen: false,
 	openThoughts: [],
@@ -60,6 +60,7 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	lastSent: "",
 	stopping: false,
 	copiedKey: "",
+	draftSlot: isNew ? NEW_CHAT_DRAFT : name,
 	chatSearch: "",
 	confirmingDelete: Option.none(),
 	unseenFrom: Option.none(),

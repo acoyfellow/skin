@@ -6,6 +6,8 @@ export const MAX_COMPOSER_HEIGHT_PX = 160;
 
 export const DRAFT_MAX_AGE_MS = 60 * 60 * 1000;
 
+export const NEW_CHAT_DRAFT = "new";
+
 export type KeyDecision = "send" | "newline" | "ignore";
 
 export type KeyInput = Readonly<{ key: string; shiftKey: boolean; isComposing: boolean; isTouch: boolean }>;

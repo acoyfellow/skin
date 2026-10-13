@@ -23,6 +23,10 @@ const SocketTarget = Schema.Struct({ name: ConversationName, epoch: Schema.Numbe
 
 const MAX_BACKOFF = Duration.seconds(10);
 
+export const GIVE_UP_AFTER = 6;
+
+export const isOffline = (model: Pick<Model, "connected" | "failedConnects">): boolean => !model.connected && model.failedConnects >= GIVE_UP_AFTER;
+
 export const reconnectDelay = (failures: number): Duration.Duration =>
 	failures === 0 ? Duration.zero : Duration.min(Duration.millis(250 * 2 ** Math.min(failures, 6)), MAX_BACKOFF);
 
@@ -76,7 +80,7 @@ const open = (name: ConversationName, failures: number) =>
 export const managedResources = ManagedResource.make<Model, Message>()((entry) => ({
 	agentSocket: entry(Schema.Option(SocketTarget), {
 		resource: AgentSocket,
-		modelToMaybeRequirements: (model) => Option.some({ name: model.name, epoch: model.connectionEpoch, failures: model.failedConnects }),
+		modelToMaybeRequirements: (model) => (isOffline(model) ? Option.none() : Option.some({ name: model.name, epoch: model.connectionEpoch, failures: model.failedConnects })),
 		acquire: ({ name, failures }) => open(name, failures),
 		release: ({ socket }) => Effect.sync(() => socket.close()),
 		onAcquired: () => Message.SocketOpened(),

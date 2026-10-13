@@ -2,7 +2,8 @@ import { Match, Option } from "effect";
 import type { Command, Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 import { ConversationName, type ServerFrame, type Snapshot, UserBlock } from "./kernel/protocol";
-import { ClearCopied, CopyText, DeleteConversation, JumpToLatest, SaveDraft, Stop, LoadConversations, LoadFile, OpenConversation, ResetApp, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
+import { NEW_CHAT_DRAFT } from "./composer";
+import { ClearCopied, FocusComposer, CopyText, DeleteConversation, JumpToLatest, SaveDraft, Stop, LoadConversations, LoadFile, OpenConversation, ResetApp, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
 import { Message } from "./message";
 import { type Model, OpenFile, Phase } from "./model";
 import type { AgentClient } from "./rpc";
@@ -115,13 +116,14 @@ const send = (model: Model, text: string): UpdateReturn => {
 	const pending = modifyFields(model, {
 		draft: () => "",
 		lastSent: () => trimmed,
+		draftSlot: () => model.name,
 		busy: () => true,
 		phase: () => Phase.Working(),
 		blocks: (blocks) => [...blocks, UserBlock.make({ text: trimmed })],
 		turnSince: () => Option.some(model.now),
 	});
 
-	return { model: withActivity(pending), commands: [Send({ name: model.name, text: trimmed }), ShowConversation({ name: model.name }), JumpToLatest(), SaveDraft({ name: model.name, text: "" })] };
+	return { model: withActivity(pending), commands: [Send({ name: model.name, text: trimmed }), ShowConversation({ name: model.name }), JumpToLatest(), SaveDraft({ name: model.draftSlot, text: "" })] };
 };
 
 const stop = (model: Model): UpdateReturn => ({ model: modifyFields(model, { stopping: () => true }), commands: [Stop({ name: model.name })] });
@@ -145,7 +147,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 					),
 			}),
 		}),
-		UpdatedDraft: ({ value }) => ({ model: modifyFields(model, { draft: () => value }), commands: [SaveDraft({ name: model.name, text: value })] }),
+		UpdatedDraft: ({ value }) => ({ model: modifyFields(model, { draft: () => value }), commands: [SaveDraft({ name: model.draftSlot, text: value })] }),
 		SubmittedDraft: () => send(model, model.draft),
 		ClickedExample: ({ text }) => send(model, text),
 		SucceededSend: () => ({ model, commands: [LoadConversations()] }),
@@ -156,6 +158,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		ClickedStop: () => (model.busy && !model.stopping ? stop(model) : { model }),
 		FinishedStop: ({ reason }) => ({ model: modifyFields(reason === "" ? model : withNote(model, `Could not stop: ${reason}`), { stopping: () => false }) }),
 		SavedDraft: () => ({ model }),
+		ClickedRetry: ({ text }) => send(model, text),
+		ClickedEdit: ({ text }) => ({ model: modifyFields(model, { draft: () => text }), commands: [SaveDraft({ name: model.draftSlot, text }), FocusComposer()] }),
+		ClickedBranch: ({ text }) => ({ model, commands: [SaveDraft({ name: NEW_CHAT_DRAFT, text }), StartNewConversation()] }),
+		ClickedRetryConnection: () => ({ model: modifyFields(model, { failedConnects: () => 0, connectionEpoch: (epoch) => epoch + 1 }) }),
 		ClickedCopy: ({ key, text }) => ({ model, commands: [CopyText({ key, text })] }),
 		FinishedCopy: ({ key, ok }) =>
 			ok ? { model: modifyFields(model, { copiedKey: () => key }), commands: [ClearCopied({ key })] } : { model: withNote(model, "Copy failed: the browser blocked the clipboard.") },

@@ -13,10 +13,24 @@ const tail = (text: string, size: number): string => (text.length > size ? `…$
 
 export const kilobytes = (size: number): string => (size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} KB`);
 
-const userTurn = (h: H, text: string): Html =>
+const turnAction = (h: H, label: string, title: string, message: Message, disabled: boolean): Html =>
+	h.button([h.Type("button"), h.Class("rounded px-1.5 hover:text-ink disabled:opacity-40"), h.AriaLabel(title), h.Title(title), h.Disabled(disabled), h.OnClick(message)], [label]);
+
+const userTurn = (h: H, model: Model, text: string, key: string): Html =>
 	h.div(
-		[h.Class("flex justify-end")],
-		[h.div([h.Class("max-w-[85%] rounded-lg bg-raised px-3.5 py-2 whitespace-pre-wrap")], [text])],
+		[h.Class("group grid justify-items-end gap-1"), h.DataAttribute("user-turn", key)],
+		[
+			h.div([h.Class("max-w-[85%] rounded-lg bg-raised px-3.5 py-2 whitespace-pre-wrap")], [text]),
+			h.div(
+				[h.Class("flex gap-1 text-[12px] text-faint opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100")],
+				[
+					turnAction(h, "Retry", model.busy ? "Wait for the agent to finish before retrying" : "Send this message again", Message.ClickedRetry({ text }), model.busy),
+					turnAction(h, "Edit", "Put this message back in the composer", Message.ClickedEdit({ text }), false),
+					turnAction(h, "Branch", "Start a new chat from this message", Message.ClickedBranch({ text }), false),
+					turnAction(h, model.copiedKey === `${key}.message` ? "Copied" : "Copy", "Copy message", Message.ClickedCopy({ key: `${key}.message`, text }), false),
+				],
+			),
+		],
 	);
 
 const reply = (h: H, model: Model, text: string, key: string, live: boolean): Html =>
@@ -87,7 +101,7 @@ const toolRow = (h: H, block: ToolBlock, live: boolean): Html => {
 const blockView = (h: H, model: Model, block: Block, key: string, live: boolean): Html =>
 	Match.value(block).pipe(
 		Match.tagsExhaustive({
-			UserText: ({ text }) => userTurn(h, text),
+			UserText: ({ text }) => userTurn(h, model, text, key),
 			Reply: ({ text }) => reply(h, model, text, key, live),
 			Thought: ({ text }) => thought(h, model, key, text, live),
 			Tool: (tool) => toolRow(h, tool, live),

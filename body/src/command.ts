@@ -127,7 +127,7 @@ export const Stop = Command.define("Stop", {
 });
 
 export const SaveDraft = Command.define("SaveDraft", {
-	args: { name: ConversationName, text: Schema.String },
+	args: { name: Schema.String, text: Schema.String },
 	messages: [Message.SavedDraft],
 	execute: ({ name, text }) =>
 		Effect.clockWith((clock) => clock.currentTimeMillis).pipe(
@@ -153,4 +153,15 @@ export const ClearCopied = Command.define("ClearCopied", {
 	args: { key: Schema.String },
 	messages: [Message.ExpiredCopied],
 	execute: ({ key }) => Effect.sleep("1200 millis").pipe(Effect.as(Message.ExpiredCopied({ key }))),
+});
+
+export const FocusComposer = Command.define("FocusComposer", {
+	messages: [Message.SavedDraft],
+	execute: Effect.sync(() => {
+		const composer = document.getElementById("task");
+
+		composer?.focus();
+
+		return Message.SavedDraft();
+	}),
 });

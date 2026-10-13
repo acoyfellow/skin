@@ -61,6 +61,7 @@ export const Model = Schema.Struct({
 	lastSent: Schema.String,
 	stopping: Schema.Boolean,
 	copiedKey: Schema.String,
+	draftSlot: Schema.String,
 	chatSearch: Schema.String,
 	confirmingDelete: Schema.Option(Schema.String),
 	unseenFrom: Schema.Option(Schema.Number),

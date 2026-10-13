@@ -8,19 +8,22 @@ import { fileViewer, filesPanel } from "./files";
 import { transcript } from "./transcript";
 import { ComposerKeys } from "../composer";
 import { FollowLog } from "../follow";
+import { isOffline } from "../socket";
 
 type H = HtmlBuilder<Message>;
 
 type Status = { readonly label: string; readonly tone: string; readonly mark: string };
 
 const statusOf = (model: Model): Status =>
-	Phase.match(model.phase, {
-		Connecting: () => ({ label: "Connecting", tone: "text-faint", mark: "bg-faint" }),
-		Idle: () => ({ label: "Idle", tone: "text-dim", mark: "bg-ok" }),
-		Working: () => ({ label: "Working", tone: "text-ink", mark: "bg-ink" }),
-		Dead: () => ({ label: "Killed", tone: "text-bad", mark: "bg-bad" }),
-		Reviving: () => ({ label: "Coming back", tone: "text-life", mark: "bg-life" }),
-	});
+	isOffline(model)
+		? { label: "Offline", tone: "text-bad", mark: "bg-bad" }
+		: Phase.match(model.phase, {
+				Connecting: () => ({ label: "Connecting", tone: "text-faint", mark: "bg-faint" }),
+				Idle: () => ({ label: "Idle", tone: "text-dim", mark: "bg-ok" }),
+				Working: () => ({ label: "Working", tone: "text-ink", mark: "bg-ink" }),
+				Dead: () => ({ label: "Killed", tone: "text-bad", mark: "bg-bad" }),
+				Reviving: () => ({ label: "Coming back", tone: "text-life", mark: "bg-life" }),
+			});
 
 const isDown = (model: Model): boolean => Phase.isAnyOf(["Dead", "Reviving"])(model.phase);
 
@@ -48,6 +51,9 @@ const header = (h: H, model: Model): Html => {
 						[h.Id("status"), h.Class(`flex items-center gap-2 text-[13px] ${status.tone}`), h.AriaLive("polite")],
 						[h.i([h.Class(`size-2 rounded-full ${status.mark}`), h.AriaHidden(true)], []), status.label],
 					),
+					...(isOffline(model)
+						? [h.button([h.Type("button"), h.Id("retry-connection"), h.Class("rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised"), h.OnClick(Message.ClickedRetryConnection())], ["Retry"])]
+						: []),
 					divider(h),
 					h.div(
 						[h.Class("flex items-center gap-2")],

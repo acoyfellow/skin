@@ -18,7 +18,7 @@ import {
 import { DeleteConversation, JumpToLatest, LoadConversations, SaveDraft, Stop, Send, ShowConversation, StartNewConversation } from "./command";
 import { initialModel } from "./main";
 import { Message } from "./message";
-import { reconnectDelay } from "./socket";
+import { isOffline, reconnectDelay } from "./socket";
 import { Phase } from "./model";
 import { update } from "./update";
 import { decideComposerKey } from "./composer";
@@ -402,5 +402,22 @@ describe("basic: chat list", () => {
 		const hour = 3_600_000;
 
 		expect([now - hour, now - 20 * hour, now - 3 * 24 * hour, now - 30 * 24 * hour].map((at) => dayGroup(now, at))).toEqual(["Today", "Yesterday", "Last 7 days", "Older"]);
+	});
+});
+
+describe("basic: connection", () => {
+	test("after six failed connects the page says offline and stops trying until Retry", () => {
+		const failing = Array.from({ length: 6 }).reduce<typeof offline>((current) => update(current, Message.SocketClosed()).model, offline);
+
+		expect(isOffline(failing)).toBe(true);
+		story(
+			update,
+			given(failing),
+			message(Message.ClickedRetryConnection()),
+			model((current) => {
+				expect(isOffline(current)).toBe(false);
+				expect(current.failedConnects).toBe(0);
+			}),
+		);
 	});
 });

@@ -40,15 +40,23 @@ const attach = (element: Element, emit: (following: boolean) => void) => {
 		if (event instanceof WheelEvent && event.deltaY < 0) setFollowing(false);
 	};
 
+	const onKeyDown = (event: Event) => {
+		if (event instanceof KeyboardEvent && ["PageUp", "ArrowUp", "Home"].includes(event.key)) setFollowing(false);
+	};
+
 	const onTouchMove = () => {
 		if (!isNearBottom(element)) setFollowing(false);
 	};
 
-	const onScroll = () => setFollowing(isNearBottom(element));
+	const onScroll = () => {
+		if (isNearBottom(element)) setFollowing(true);
+	};
 
 	const onJump = () => {
-		setFollowing(true);
+		follower.following = true;
+		emit(true);
 		jumpToBottom(element);
+		requestAnimationFrame(() => jumpToBottom(element));
 	};
 
 	const onGrow = () => {
@@ -60,6 +68,7 @@ const attach = (element: Element, emit: (following: boolean) => void) => {
 	observer.observe(element, { childList: true, subtree: true, characterData: true });
 	element.addEventListener("wheel", onWheel, { passive: true });
 	element.addEventListener("touchmove", onTouchMove, { passive: true });
+	element.addEventListener("keydown", onKeyDown);
 	element.addEventListener("scroll", onScroll, { passive: true });
 	element.addEventListener(JUMP_EVENT, onJump);
 	jumpToBottom(element);
@@ -68,6 +77,7 @@ const attach = (element: Element, emit: (following: boolean) => void) => {
 		observer.disconnect();
 		element.removeEventListener("wheel", onWheel);
 		element.removeEventListener("touchmove", onTouchMove);
+		element.removeEventListener("keydown", onKeyDown);
 		element.removeEventListener("scroll", onScroll);
 		element.removeEventListener(JUMP_EVENT, onJump);
 	};
