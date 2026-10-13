@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { Cause, Effect, Exit, Layer, ManagedRuntime, Option, Schema } from "effect";
-import { type ConversationName, KillOutcomeJson, ReadOutcomeJson, SendOutcomeJson, ServerFrameJson, SnapshotFrame, SnapshotJson } from "../shared/protocol";
+import { type ConversationName, KillOutcomeJson, ReadOutcomeJson, StopOutcomeJson, SendOutcomeJson, ServerFrameJson, SnapshotFrame, SnapshotJson } from "../shared/protocol";
 import { ConversationAgent } from "./conversation";
 import type { Body } from "./body";
 import { Repo } from "./files";
@@ -19,6 +19,8 @@ const encodeFrame = Schema.encodeSync(ServerFrameJson);
 const encodeSend = Schema.encodeSync(SendOutcomeJson);
 
 const encodeKill = Schema.encodeSync(KillOutcomeJson);
+
+const encodeStop = Schema.encodeSync(StopOutcomeJson);
 
 const encodeRead = Schema.encodeSync(ReadOutcomeJson);
 
@@ -90,6 +92,10 @@ export class Agent extends DurableObject<AgentEnv> {
 
 	kill(name: ConversationName): Promise<string> {
 		return this.run(Option.some(name), withAgent((agent) => agent.kill).pipe(Effect.result, Effect.map(encodeKill)));
+	}
+
+	stop(name: ConversationName): Promise<string> {
+		return this.run(Option.some(name), withAgent((agent) => agent.stop).pipe(Effect.result, Effect.map(encodeStop)));
 	}
 
 	readFile(name: ConversationName, path: string): Promise<string> {

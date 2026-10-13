@@ -3,6 +3,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import type { Block, TimelineEvent, ToolBlock } from "../kernel/protocol";
 import { Message } from "../message";
 import { EXAMPLES, type LocalNote, type Model } from "../model";
+import { markdown } from "./markdown";
 
 type H = HtmlBuilder<Message>;
 
@@ -18,17 +19,37 @@ const userTurn = (h: H, text: string): Html =>
 		[h.div([h.Class("max-w-[85%] rounded-lg bg-raised px-3.5 py-2 whitespace-pre-wrap")], [text])],
 	);
 
-const reply = (h: H, text: string): Html => h.div([h.Class("whitespace-pre-wrap text-ink")], [text]);
+const reply = (h: H, model: Model, text: string, key: string, live: boolean): Html =>
+	h.div(
+		[h.Class("group grid gap-1"), h.DataAttribute("reply", key)],
+		[
+			markdown(h, text, model.copiedKey, key),
+			...(live
+				? []
+				: [
+						h.div(
+							[h.Class("flex gap-2 text-[12px] text-faint opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100")],
+							[
+								h.button(
+									[h.Type("button"), h.Class("rounded px-1.5 hover:text-ink"), h.AriaLabel("Copy message"), h.OnClick(Message.ClickedCopy({ key: `${key}.message`, text }))],
+									[model.copiedKey === `${key}.message` ? "Copied" : "Copy"],
+								),
+							],
+						),
+					]),
+		],
+	);
 
 const thought = (h: H, model: Model, key: string, text: string, live: boolean): Html => {
-	const open = live || model.openThoughts.includes(key);
+	const open = model.openThoughts.includes(key);
 
 	return h.div(
 		[h.Class("text-[13px] text-faint")],
 		[
-			live
-				? h.span([], ["Thinking"])
-				: h.button([h.Type("button"), h.Class("hover:text-ink"), h.AriaExpanded(open), h.OnClick(Message.ToggledThought({ key }))], [open ? "Hide thought" : "Show thought"]),
+			h.button(
+				[h.Type("button"), h.Class("hover:text-ink"), h.AriaExpanded(open), h.OnClick(Message.ToggledThought({ key }))],
+				[live ? (open ? "Thinking · hide" : "Thinking…") : open ? "Hide thinking" : "Thinking"],
+			),
 			...(open ? [h.pre([h.Class("mt-1.5 border-l border-line-strong pl-3 font-mono text-[12px] whitespace-pre-wrap text-dim")], [live ? tail(text, LIVE_THOUGHT_TAIL) : text])] : []),
 		],
 	);
@@ -67,7 +88,7 @@ const blockView = (h: H, model: Model, block: Block, key: string, live: boolean)
 	Match.value(block).pipe(
 		Match.tagsExhaustive({
 			UserText: ({ text }) => userTurn(h, text),
-			Reply: ({ text }) => reply(h, text),
+			Reply: ({ text }) => reply(h, model, text, key, live),
 			Thought: ({ text }) => thought(h, model, key, text, live),
 			Tool: (tool) => toolRow(h, tool, live),
 		}),

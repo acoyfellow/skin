@@ -33,6 +33,18 @@ export const Message = defineMessageUnion({
 	ChoseVersionFilter: { filter: VersionFilter },
 	ClosedFile: {},
 	PolledConversations: {},
+	ChangedFollowing: { following: Schema.Boolean },
+	ClickedJumpToLatest: {},
+	PressedEscape: {},
+	ClickedStop: {},
+	FinishedStop: { reason: Schema.String },
+	SavedDraft: {},
+	ClickedCopy: { key: Schema.String, text: Schema.String },
+	FinishedCopy: { key: Schema.String, ok: Schema.Boolean },
+	ExpiredCopied: { key: Schema.String },
+	UpdatedChatSearch: { value: Schema.String },
+	ConfirmedDeleteConversation: { name: Schema.String },
+	CancelledDeleteConversation: {},
 });
 
 export type Message = typeof Message.Type;

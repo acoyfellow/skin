@@ -148,6 +148,8 @@ export class AgentUnavailable extends Schema.TaggedError<AgentUnavailable>()("Ag
 
 export const KILLED_FROM_THE_UI = "killed from the UI";
 
+export const STOPPED_BY_OWNER = "Stopped by you.";
+
 export class FilesUnavailable extends Schema.TaggedError<FilesUnavailable>()("FilesUnavailable", { reason: Schema.String }) {}
 
 export class FileNotFound extends Schema.TaggedError<FileNotFound>()("FileNotFound", { path: Schema.String }) {}
@@ -178,6 +180,7 @@ export const AgentRpcs = RpcGroup.make(
 	Rpc.make("Snapshot", { payload: target, success: Snapshot, error: AgentUnavailable }),
 	Rpc.make("Send", { payload: { ...target, text: Input }, success: Accepted, error: Schema.Union([StillWorking, AgentUnavailable]) }),
 	Rpc.make("Kill", { payload: target, error: Schema.Union([NothingRunning, KillNotSaved, AgentUnavailable]) }),
+	Rpc.make("Stop", { payload: target, error: Schema.Union([NothingRunning, AgentUnavailable]) }),
 	Rpc.make("ReadFile", { payload: { ...target, path: Schema.String }, success: Schema.String, error: Schema.Union([FileNotFound, FilesUnavailable, AgentUnavailable]) }),
 	Rpc.make("Body", { success: BodyState, error: FilesUnavailable }),
 	Rpc.make("Conversations", { success: Schema.Array(ConversationSummary), error: FilesUnavailable }),
@@ -219,5 +222,9 @@ export const SnapshotJson = Schema.fromJsonString(Schema.toCodecJson(Snapshot));
 export const SendOutcomeJson = Schema.fromJsonString(Schema.toCodecJson(SendOutcome));
 
 export const KillOutcomeJson = Schema.fromJsonString(Schema.toCodecJson(KillOutcome));
+
+const StopOutcome = Schema.Result(Schema.Void, NothingRunning);
+
+export const StopOutcomeJson = Schema.fromJsonString(Schema.toCodecJson(StopOutcome));
 
 export const ReadOutcomeJson = Schema.fromJsonString(Schema.toCodecJson(ReadOutcome));

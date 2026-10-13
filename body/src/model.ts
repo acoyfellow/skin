@@ -57,6 +57,13 @@ export const Model = Schema.Struct({
 	now: Schema.Number,
 	activitySince: Schema.Number,
 	turnSince: Schema.Option(Schema.Number),
+	following: Schema.Boolean,
+	lastSent: Schema.String,
+	stopping: Schema.Boolean,
+	copiedKey: Schema.String,
+	chatSearch: Schema.String,
+	confirmingDelete: Schema.Option(Schema.String),
+	unseenFrom: Schema.Option(Schema.Number),
 	activityKey: Schema.String,
 });
 

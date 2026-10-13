@@ -11,6 +11,7 @@ import {
 	KilledEvent,
 	KilledFrame,
 	KILLED_FROM_THE_UI,
+	STOPPED_BY_OWNER,
 	type BodyState,
 	type Live,
 	LiveFrame,
@@ -45,6 +46,7 @@ export type Conversation = {
 	readonly snapshot: Effect.Effect<Snapshot>;
 	readonly send: (text: string) => Effect.Effect<{ readonly id: string }, StillWorking>;
 	readonly kill: Effect.Effect<void, NothingRunning | KillNotSaved>;
+	readonly stop: Effect.Effect<void, NothingRunning>;
 	readonly readFile: (path: string) => Effect.Effect<string, FileNotFound | FilesUnavailable>;
 	readonly keepAlive: Effect.Effect<void>;
 };
@@ -210,6 +212,23 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 					return yield* object.abort(KILLED_FROM_THE_UI);
 				});
 
+				const stop = Effect.gen(function* () {
+					if (Option.isNone(yield* store.pending)) return yield* Effect.fail(new NothingRunning());
+
+					yield* store.clearPending;
+					yield* record(FailedEvent.make({ at: yield* now, afterBlock: yield* blockCount, reason: STOPPED_BY_OWNER }));
+					yield* Ref.set(failed, false);
+					yield* mark("idle");
+					yield* Ref.set(driving, false);
+					yield* Ref.set(live, { value: Option.none(), changedAt: yield* now });
+					yield* object.clearAlarm.pipe(Effect.catchTag("StorageFailed", (error) => Effect.logWarning("could not clear the watchdog", error.reason)));
+					yield* broadcast.send(BusyFrame.make({ busy: false }));
+					yield* broadcast.send(SnapshotFrame.make({ snapshot: yield* snapshot }));
+					yield* object.flush.pipe(Effect.ignore);
+
+					return yield* object.abort(STOPPED_BY_OWNER);
+				});
+
 				const readFile = (path: string) =>
 					pi.repo.read(path).pipe(
 						Effect.catchTag("BodyUnavailable", (error) => Effect.fail(new FilesUnavailable({ reason: error.reason }))),
@@ -224,7 +243,7 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 				yield* object.background(comeBack(yield* revival));
 				yield* object.background(pushBody(pi.repo));
 
-				return { snapshot, send, kill, readFile, keepAlive };
+				return { snapshot, send, kill, stop, readFile, keepAlive };
 			}),
 		);
 }

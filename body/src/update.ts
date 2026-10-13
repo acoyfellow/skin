@@ -2,7 +2,7 @@ import { Match, Option } from "effect";
 import type { Command, Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 import { ConversationName, type ServerFrame, type Snapshot, UserBlock } from "./kernel/protocol";
-import { DeleteConversation, LoadConversations, LoadFile, OpenConversation, ResetApp, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
+import { ClearCopied, CopyText, DeleteConversation, JumpToLatest, SaveDraft, Stop, LoadConversations, LoadFile, OpenConversation, ResetApp, Rollback, Send, ShowConversation, StartNewConversation } from "./command";
 import { Message } from "./message";
 import { type Model, OpenFile, Phase } from "./model";
 import type { AgentClient } from "./rpc";
@@ -55,6 +55,19 @@ const phaseFor = (snapshot: Snapshot, connected: boolean): Phase =>
 		onNone: () => (snapshot.busy ? Phase.Working() : Phase.Idle()),
 	});
 
+const lastUserIndex = (blocks: Model["blocks"]): number => blocks.findLastIndex((block) => block._tag === "UserText");
+
+export const finishedWithoutReply = (blocks: Model["blocks"]): boolean => {
+	const from = lastUserIndex(blocks);
+
+	return from >= 0 && !blocks.slice(from + 1).some((block) => block._tag === "Reply" && block.text.trim() !== "");
+};
+
+const EMPTY_FINISH = "The agent finished without a visible reply. Ask again, or check Versions to see what changed.";
+
+const noteEmptyFinish = (before: Model, after: Model): Model =>
+	before.busy && !after.busy && finishedWithoutReply(after.blocks) && !after.localNotes.some((note) => note.reason === EMPTY_FINISH) ? withNote(after, EMPTY_FINISH) : after;
+
 const applySnapshot = (model: Model, snapshot: Snapshot): Model =>
 	modifyFields(model, {
 		lives: () => snapshot.lives,
@@ -76,7 +89,7 @@ const markKilled = (model: Model, killedAt: number): Model =>
 const onFrame = (model: Model, frame: ServerFrame): UpdateReturn => {
 	const next = Match.value(frame).pipe(
 		Match.tagsExhaustive({
-			Snapshot: ({ snapshot }) => applySnapshot(model, snapshot),
+			Snapshot: ({ snapshot }) => noteEmptyFinish(model, applySnapshot(model, snapshot)),
 			Live: ({ live }) => modifyFields(model, { live: () => live }),
 			Blocks: ({ blocks }) => modifyFields(model, { blocks: () => blocks }),
 			Body: ({ body }) => modifyFields(model, { body: () => body, bodyVersion: (version) => version + 1 }),
@@ -97,16 +110,21 @@ const send = (model: Model, text: string): UpdateReturn => {
 
 	if (trimmed === "" || model.busy || isDown(model.phase)) return { model };
 
+	if (!model.connected) return { model: withNote(model, "Message not sent: reconnecting. Your draft is still in the composer.") };
+
 	const pending = modifyFields(model, {
 		draft: () => "",
+		lastSent: () => trimmed,
 		busy: () => true,
 		phase: () => Phase.Working(),
 		blocks: (blocks) => [...blocks, UserBlock.make({ text: trimmed })],
 		turnSince: () => Option.some(model.now),
 	});
 
-	return { model: withActivity(pending), commands: [Send({ name: model.name, text: trimmed }), ShowConversation({ name: model.name })] };
+	return { model: withActivity(pending), commands: [Send({ name: model.name, text: trimmed }), ShowConversation({ name: model.name }), JumpToLatest(), SaveDraft({ name: model.name, text: "" })] };
 };
+
+const stop = (model: Model): UpdateReturn => ({ model: modifyFields(model, { stopping: () => true }), commands: [Stop({ name: model.name })] });
 
 const toggled = (items: ReadonlyArray<string>, item: string) => (items.includes(item) ? items.filter((each) => each !== item) : [...items, item]);
 
@@ -127,11 +145,21 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 					),
 			}),
 		}),
-		UpdatedDraft: ({ value }) => ({ model: modifyFields(model, { draft: () => value }) }),
+		UpdatedDraft: ({ value }) => ({ model: modifyFields(model, { draft: () => value }), commands: [SaveDraft({ name: model.name, text: value })] }),
 		SubmittedDraft: () => send(model, model.draft),
 		ClickedExample: ({ text }) => send(model, text),
 		SucceededSend: () => ({ model, commands: [LoadConversations()] }),
-		FailedSend: ({ reason }) => ({ model: settlePhase(withNote(model, reason), false) }),
+		FailedSend: ({ reason }) => ({
+			model: settlePhase(withNote(modifyFields(model, { draft: (draft) => (draft === "" ? model.lastSent : draft) }), `${reason} Your message is back in the composer.`), false),
+		}),
+		PressedEscape: () => (model.busy && !model.stopping ? stop(model) : { model }),
+		ClickedStop: () => (model.busy && !model.stopping ? stop(model) : { model }),
+		FinishedStop: ({ reason }) => ({ model: modifyFields(reason === "" ? model : withNote(model, `Could not stop: ${reason}`), { stopping: () => false }) }),
+		SavedDraft: () => ({ model }),
+		ClickedCopy: ({ key, text }) => ({ model, commands: [CopyText({ key, text })] }),
+		FinishedCopy: ({ key, ok }) =>
+			ok ? { model: modifyFields(model, { copiedKey: () => key }), commands: [ClearCopied({ key })] } : { model: withNote(model, "Copy failed: the browser blocked the clipboard.") },
+		ExpiredCopied: ({ key }) => ({ model: modifyFields(model, { copiedKey: (current) => (current === key ? "" : current) }) }),
 		ClickedNew: () => ({ model, commands: [StartNewConversation()] }),
 		ToggledFilesPanel: () => ({ model: modifyFields(model, { filesPanelOpen: (open) => !open }) }),
 		ClickedFile: ({ path }) =>
@@ -149,12 +177,19 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		ToggledThought: ({ key }) => ({ model: modifyFields(model, { openThoughts: (open) => toggled(open, key) }) }),
 		Ticked: ({ now }) => ({ model: modifyFields(model, { now: () => now }) }),
 		PolledConversations: () => ({ model, commands: [LoadConversations()] }),
+		ChangedFollowing: ({ following }) => ({
+			model: modifyFields(model, { following: () => following, unseenFrom: () => (following ? Option.none() : Option.some(model.blocks.length)) }),
+		}),
+		ClickedJumpToLatest: () => ({ model, commands: [JumpToLatest()] }),
 		CompletedNavigation: () => ({ model }),
 		LoadedConversations: ({ conversations }) => ({ model: modifyFields(model, { conversations: () => conversations, conversationsError: () => Option.none() }) }),
 		FailedConversations: ({ reason }) => ({ model: modifyFields(model, { conversationsError: () => Option.some(reason) }) }),
 		ClickedConversation: ({ name }) => (name === model.name ? { model } : { model, commands: [OpenConversation({ name: ConversationName.make(name) })] }),
-		ClickedDeleteConversation: ({ name }) => ({
-			model: modifyFields(model, { conversations: (all) => all.filter((conversation) => conversation.name !== name) }),
+		UpdatedChatSearch: ({ value }) => ({ model: modifyFields(model, { chatSearch: () => value }) }),
+		ClickedDeleteConversation: ({ name }) => ({ model: modifyFields(model, { confirmingDelete: () => Option.some(name) }) }),
+		CancelledDeleteConversation: () => ({ model: modifyFields(model, { confirmingDelete: () => Option.none() }) }),
+		ConfirmedDeleteConversation: ({ name }) => ({
+			model: modifyFields(model, { conversations: (all) => all.filter((conversation) => conversation.name !== name), confirmingDelete: () => Option.none() }),
 			commands: [DeleteConversation({ name: ConversationName.make(name) })],
 		}),
 		DeletedConversation: ({ name }) => ({ model, commands: name === model.name ? [StartNewConversation()] : [LoadConversations()] }),

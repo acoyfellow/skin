@@ -6,6 +6,8 @@ import { activityRow, clock, elapsedSeconds, turnSeconds } from "./activity";
 import { chatsPanel } from "./chats";
 import { fileViewer, filesPanel } from "./files";
 import { transcript } from "./transcript";
+import { ComposerKeys } from "../composer";
+import { FollowLog } from "../follow";
 
 type H = HtmlBuilder<Message>;
 
@@ -95,33 +97,76 @@ const composer = (h: H, model: Model): Html =>
 						h.Rows(1),
 						h.Placeholder("Describe a task that takes a few steps"),
 						h.Value(model.draft),
-						h.Class("max-h-48 min-h-9 flex-1 resize-none bg-transparent px-2.5 py-1.5 outline-none placeholder:text-faint focus-visible:outline-none"),
+						h.Class("min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 outline-none placeholder:text-faint focus-visible:outline-none"),
+						h.AriaLabel("Message"),
 						h.OnInput((value) => Message.UpdatedDraft({ value })),
-						h.OnKeyDownPreventDefault((key, modifiers) =>
-							key === "Enter" && !modifiers.shiftKey ? Option.some(Message.SubmittedDraft()) : Option.none(),
-						),
+						h.OnMount(ComposerKeys()),
 					]),
-					h.button(
-						[
-							h.Type("submit"),
-							h.Disabled(model.busy || isDown(model)),
-							h.Class(`${BUTTON} h-9 bg-accent text-accent-ink hover:opacity-90`),
-						],
-						["Send"],
-					),
+					model.busy
+						? h.button(
+								[
+									h.Type("button"),
+									h.Id("stop"),
+									h.Disabled(model.stopping),
+									h.AriaLabel("Stop the agent"),
+									h.Title("Stop (Esc)"),
+									h.Class(`${BUTTON} h-9 border border-line-strong bg-bg text-ink hover:bg-raised`),
+									h.OnClick(Message.ClickedStop()),
+								],
+								[model.stopping ? "Stopping…" : "Stop"],
+							)
+						: h.button(
+								[
+									h.Type("submit"),
+									h.Id("send"),
+									h.Disabled(model.draft.trim() === "" || isDown(model)),
+									h.AriaLabel(model.draft.trim() === "" ? "Message requires text" : "Send message"),
+									h.Class(`${BUTTON} h-9 bg-accent text-accent-ink hover:opacity-90`),
+								],
+								["Send"],
+							),
 				],
 			),
 			h.p(
 				[h.Class("mt-2 text-[12px] text-faint")],
-				[h.kbd([h.Class("font-mono")], ["Enter"]), " sends. ", h.kbd([h.Class("font-mono")], ["Shift Enter"]), " adds a line."],
+				model.busy
+					? [h.kbd([h.Class("font-mono")], ["Esc"]), " stops the agent. You can write your next message now."]
+					: [h.kbd([h.Class("font-mono")], ["Enter"]), " sends. ", h.kbd([h.Class("font-mono")], ["Shift Enter"]), " adds a line."],
 			),
 		],
 	);
 
+const unseenCount = (model: Model): number => Option.match(model.unseenFrom, { onNone: () => 0, onSome: (from) => Math.max(0, model.blocks.length - from) });
+
+const jumpButton = (h: H, model: Model): ReadonlyArray<Html> => {
+	if (model.following) return [];
+
+	const unseen = unseenCount(model);
+
+	return [
+		h.button(
+			[
+				h.Type("button"),
+				h.Id("jump-to-latest"),
+				h.Class("absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line-strong bg-bg px-3 py-1 text-[12px] font-medium shadow-sm hover:bg-raised"),
+				h.AriaLabel("Scroll to latest message"),
+				h.OnClick(Message.ClickedJumpToLatest()),
+			],
+			[unseen === 0 ? "↓ Latest" : `↓ ${unseen} new`],
+		),
+	];
+};
+
 const conversation = (h: H, model: Model): Html =>
 	h.section(
 		[h.Class("grid min-h-0 grid-rows-[1fr_auto]"), h.AriaLabel("Conversation")],
-		[h.div([h.Id("log"), h.Class("overflow-y-auto px-5 pt-8 pb-4")], [transcript(h, model)]), h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)])],
+		[
+			h.div([h.Class("relative min-h-0")], [
+				h.div([h.Id("log"), h.Class("h-full overflow-y-auto px-5 pt-8 pb-4"), h.Role("log"), h.AriaLive("polite"), h.AriaLabel("Conversation"), h.OnMount(FollowLog())], [transcript(h, model)]),
+				...jumpButton(h, model),
+			]),
+			h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)]),
+		],
 	);
 
 export const view = (model: Model, h: H): Document => ({

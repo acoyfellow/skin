@@ -15,17 +15,22 @@ import {
 	SnapshotFrame,
 	UserBlock,
 } from "./kernel/protocol";
-import { DeleteConversation, LoadConversations, Send, ShowConversation, StartNewConversation } from "./command";
+import { DeleteConversation, JumpToLatest, LoadConversations, SaveDraft, Stop, Send, ShowConversation, StartNewConversation } from "./command";
 import { initialModel } from "./main";
 import { Message } from "./message";
 import { reconnectDelay } from "./socket";
 import { Phase } from "./model";
 import { update } from "./update";
+import { decideComposerKey } from "./composer";
+import { parseBlocks, parseInline } from "./view/markdown";
+import { dayGroup } from "./view/chats";
 import { clock, turnSeconds } from "./view/activity";
 
 const name = ConversationName.make("c-story");
 
-const fresh = initialModel({ name, isNew: true, now: 1_000 });
+const offline = initialModel({ name, isNew: true, now: 1_000 });
+
+const fresh = { ...offline, connected: true };
 
 const snapshot = (overrides: Partial<Snapshot>): Snapshot => ({
 	name,
@@ -62,7 +67,7 @@ describe("reconnecting", () => {
 
 		story(
 			update,
-			given(fresh),
+			given(offline),
 			message(Message.SocketClosed()),
 			message(Message.SocketClosed()),
 			model((current) => {
@@ -118,6 +123,8 @@ describe("sending", () => {
 			Command.expectHas(ShowConversation),
 			Command.resolve(Send, Message.SucceededSend()),
 			Command.resolve(ShowConversation, Message.CompletedNavigation()),
+			Command.resolve(JumpToLatest, Message.CompletedNavigation()),
+			Command.resolve(SaveDraft, Message.SavedDraft()),
 			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
 		);
 	});
@@ -133,9 +140,57 @@ describe("sending", () => {
 			message(Message.ClickedExample({ text: "Build a page" })),
 			Command.resolve(Send, Message.FailedSend({ reason: "Still working on the last message." })),
 			Command.resolve(ShowConversation, Message.CompletedNavigation()),
+			Command.resolve(JumpToLatest, Message.CompletedNavigation()),
+			Command.resolve(SaveDraft, Message.SavedDraft()),
 			model((current) => {
 				expect(current.busy).toBe(false);
-				expect(current.localNotes.at(-1)?.reason).toBe("Still working on the last message.");
+				expect(current.localNotes.at(-1)?.reason).toBe("Still working on the last message. Your message is back in the composer.");
+				expect(current.draft).toBe("Build a page");
+			}),
+		);
+	});
+
+	test("a send while disconnected keeps the draft and says so", () => {
+		story(
+			update,
+			given({ ...offline, draft: "Build a page" }),
+			message(Message.SubmittedDraft()),
+			Command.expectNone(),
+			model((current) => {
+				expect(current.draft).toBe("Build a page");
+				expect(current.busy).toBe(false);
+				expect(current.localNotes.at(-1)?.reason).toBe("Message not sent: reconnecting. Your draft is still in the composer.");
+			}),
+		);
+	});
+
+	test("Esc while working stops the agent, and Esc while idle does nothing", () => {
+		story(
+			update,
+			given({ ...fresh, busy: true }),
+			message(Message.PressedEscape()),
+			model((current) => {
+				expect(current.stopping).toBe(true);
+			}),
+			Command.expectHas(Stop),
+			Command.resolve(Stop, Message.FinishedStop({ reason: "" })),
+			model((current) => {
+				expect(current.stopping).toBe(false);
+			}),
+		);
+		story(update, given(fresh), message(Message.PressedEscape()), Command.expectNone());
+	});
+
+	test("a turn that ends with no reply says so once", () => {
+		const asked = { ...fresh, busy: true, blocks: [UserBlock.make({ text: "Do it" })] };
+
+		story(
+			update,
+			given(asked),
+			message(frame(SnapshotFrame.make({ snapshot: snapshot({ busy: false, blocks: [UserBlock.make({ text: "Do it" })] }) }))),
+			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [] })),
+			model((current) => {
+				expect(current.localNotes.filter((note) => note.reason.startsWith("The agent finished without a visible reply")).length).toBe(1);
 			}),
 		);
 	});
@@ -234,6 +289,8 @@ describe("restarts", () => {
 			message(Message.ClickedExample({ text: "Build a page" })),
 			Command.resolve(Send, Message.SucceededSend()),
 			Command.resolve(ShowConversation, Message.CompletedNavigation()),
+			Command.resolve(JumpToLatest, Message.CompletedNavigation()),
+			Command.resolve(SaveDraft, Message.SavedDraft()),
 			Command.resolve(LoadConversations, Message.LoadedConversations({ conversations: [{ name: "c-story", title: "Build a page", updatedAt: 10_000, state: "working" }, { name: "c-broken", title: "Dark", updatedAt: 5_000, state: "failed" }] })),
 			message(Message.Ticked({ now: 75_000 })),
 			model((current) => {
@@ -268,11 +325,16 @@ describe("restarts", () => {
 describe("chats", () => {
 	const listed = update(fresh, Message.LoadedConversations({ conversations: [{ name: "c-other", title: "Make it dark", updatedAt: 900, state: "idle" }, { name: "c-story", title: "Add a clock", updatedAt: 800, state: "idle" }] })).model;
 
-	test("deleting a chat removes it from the list at once and asks the server to forget it", () => {
+	test("deleting a chat asks first, then removes it at once and asks the server to forget it", () => {
 		story(
 			update,
 			given(listed),
 			message(Message.ClickedDeleteConversation({ name: "c-other" })),
+			model((current) => {
+				expect(current.confirmingDelete).toEqual(Option.some("c-other"));
+				expect(current.conversations.length).toBe(2);
+			}),
+			message(Message.ConfirmedDeleteConversation({ name: "c-other" })),
 			model((current) => {
 				expect(current.conversations.map((conversation) => conversation.name)).toEqual(["c-story"]);
 			}),
@@ -288,6 +350,7 @@ describe("chats", () => {
 			update,
 			given(listed),
 			message(Message.ClickedDeleteConversation({ name: "c-story" })),
+			message(Message.ConfirmedDeleteConversation({ name: "c-story" })),
 			Command.resolve(DeleteConversation, Message.DeletedConversation({ name: "c-story" })),
 			Command.expectHas(StartNewConversation),
 			Command.resolve(StartNewConversation, Message.CompletedNavigation()),
@@ -305,3 +368,39 @@ describe("chats", () => {
 	});
 });
 
+
+describe("basic: composer keys", () => {
+	test("Enter sends, Shift+Enter breaks a line, IME Enter and phone Enter never send", () => {
+		const desktop = { shiftKey: false, isComposing: false, isTouch: false };
+
+		expect(decideComposerKey({ ...desktop, key: "Enter" })).toBe("send");
+		expect(decideComposerKey({ ...desktop, key: "Enter", shiftKey: true })).toBe("newline");
+		expect(decideComposerKey({ ...desktop, key: "Enter", isComposing: true })).toBe("ignore");
+		expect(decideComposerKey({ ...desktop, key: "Enter", isTouch: true })).toBe("newline");
+		expect(decideComposerKey({ ...desktop, key: "a" })).toBe("ignore");
+	});
+});
+
+describe("basic: markdown", () => {
+	test("fenced code, lists, headings, and inline marks parse without HTML", () => {
+		const blocks = parseBlocks("# Title\n\nSome **bold** and `code`.\n\n- one\n- two\n\n```ts\nconst a = 1;\n```");
+
+		expect(blocks.map((block) => block._tag)).toEqual(["Heading", "Paragraph", "List", "Code"]);
+		const parts = parseInline("a [link](https://x.dev) and [bad](javascript:alert(1))");
+
+		expect(parts.filter((part) => part._tag === "Link").map((part) => part.text)).toEqual(["link"]);
+	});
+
+	test("an unclosed fence while streaming still renders as code", () => {
+		expect(parseBlocks("```js\nlet x")).toEqual([{ _tag: "Code", language: "js", code: "let x" }]);
+	});
+});
+
+describe("basic: chat list", () => {
+	test("chats group as Today, Yesterday, Last 7 days, Older", () => {
+		const now = new Date(2026, 9, 13, 12).getTime();
+		const hour = 3_600_000;
+
+		expect([now - hour, now - 20 * hour, now - 3 * 24 * hour, now - 30 * 24 * hour].map((at) => dayGroup(now, at))).toEqual(["Today", "Yesterday", "Last 7 days", "Older"]);
+	});
+});

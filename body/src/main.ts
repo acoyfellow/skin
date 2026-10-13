@@ -4,6 +4,7 @@ import { ConversationName } from "./kernel/protocol";
 import { LoadConversations, ShowConversation } from "./command";
 import type { Message } from "./message";
 import type { AgentClient } from "./rpc";
+import { loadDraft } from "./composer";
 import { type Model, OpenFile, Phase } from "./model";
 
 const decodeName = Schema.decodeUnknownOption(ConversationName);
@@ -46,7 +47,7 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	filesError: Option.none(),
 	events: [],
 	localNotes: [],
-	draft: "",
+	draft: loadDraft(name, now),
 	openFile: OpenFile.Closed(),
 	filesPanelOpen: false,
 	openThoughts: [],
@@ -55,6 +56,13 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	now,
 	activitySince: now,
 	turnSince: Option.none(),
+	following: true,
+	lastSent: "",
+	stopping: false,
+	copiedKey: "",
+	chatSearch: "",
+	confirmingDelete: Option.none(),
+	unseenFrom: Option.none(),
 	activityKey: "",
 });
 

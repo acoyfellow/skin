@@ -12,6 +12,7 @@ import {
 	FilesUnavailable,
 	KERNEL_PREFIX,
 	KillOutcomeJson,
+	StopOutcomeJson,
 	ReadOutcomeJson,
 	REPORT_PATH,
 	RollbackOutcomeJson,
@@ -53,6 +54,8 @@ const decodeSnapshot = Schema.decodeEffect(SnapshotJson);
 const decodeSend = Schema.decodeEffect(SendOutcomeJson);
 
 const decodeKill = Schema.decodeEffect(KillOutcomeJson);
+
+const decodeStop = Schema.decodeEffect(StopOutcomeJson);
 
 const decodeRead = Schema.decodeEffect(ReadOutcomeJson);
 
@@ -97,6 +100,13 @@ const handlers = (env: Env, user: UserId) =>
 		DeleteConversation: ({ name }) =>
 			call(() => agentFor(env, user, name).forget()).pipe(Effect.andThen(bodyCall(() => bodyOf(env, user).forgetConversation(name)))),
 		ResetApp: () => bodyCall(() => bodyOf(env, user).resetApp()).pipe(Effect.flatMap(decodeShipReport), Effect.catchTag("SchemaError", Effect.die)),
+		Stop: ({ name }) =>
+			call(() => agentFor(env, user, name).stop(name)).pipe(
+				Effect.flatMap(decodeStop),
+				Effect.catchTag("SchemaError", Effect.die),
+				Effect.flatMap(Effect.fromResult),
+				Effect.catchTag("AgentUnavailable", () => Effect.void),
+			),
 		Kill: ({ name }) =>
 			Effect.gen(function* () {
 				const before = yield* storedKills(env, user, name);
