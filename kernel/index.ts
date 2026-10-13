@@ -275,7 +275,7 @@ export default {
 
 		if (pathname === CONSOLE_BODY && request.method === "GET") return bodyOf(env, user).state().then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
 
-		if (pathname === CONSOLE_RESEED && request.method === "POST") return bodyOf(env, user).reseed().then((text) => new Response(text));
+		if (pathname === CONSOLE_RESEED && request.method === "POST") return bodyOf(env, user).resetApp().then((json) => new Response(json, { headers: { "content-type": "application/json" } }));
 
 		if (pathname === OWNER_SHIP && request.method === "POST") return ownerShip(request, env, user);
 

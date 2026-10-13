@@ -18,7 +18,7 @@
 		"remote": true
 	},
 	"worker_loaders": [{ "binding": "LOADER" }],
-	"rules": [{ "type": "Text", "globs": ["**/*.css"], "fallthrough": true }],
+	"rules": [{ "type": "Text", "globs": ["**/*.css"], "fallthrough": true }, { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }],
 	"durable_objects": {
 		"bindings": [
 			{ "name": "AGENT", "class_name": "Agent" },

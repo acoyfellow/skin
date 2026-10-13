@@ -8,3 +8,8 @@ declare namespace Cloudflare {
 		mainModule: typeof import("./index");
 	}
 }
+
+declare module "*.png" {
+	const content: ArrayBuffer;
+	export default content;
+}

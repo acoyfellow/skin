@@ -1,4 +1,4 @@
-<img src="kernel/icon.svg" width="72" align="right" alt="">
+<img src="kernel/assets/icon-512.png" width="72" align="right" alt="">
 
 # skin
 

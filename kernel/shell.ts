@@ -1,6 +1,8 @@
 import { Option } from "effect";
 import { BODY_SOCKET_PATH, KERNEL_PREFIX, PIN_COOKIE, REPORT_PATH } from "../shared/protocol";
-import { ICON_192, ICON_512 } from "./icons.gen";
+import HERO from "./assets/hero.png";
+import ICON_192 from "./assets/icon-192.png";
+import ICON_512 from "./assets/icon-512.png";
 
 const START_TIMEOUT_MS = 5000;
 
@@ -151,18 +153,16 @@ export const MANIFEST = JSON.stringify({
 	icons: [
 		{ src: `${KERNEL_PREFIX}/icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
 		{ src: `${KERNEL_PREFIX}/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any maskable" },
-		{ src: `${KERNEL_PREFIX}/icon.svg`, sizes: "any", type: "image/svg+xml" },
 	],
 });
 
-export const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#171717"/><ellipse cx="32" cy="32" rx="19" ry="25" fill="#7c3aed"/><circle cx="27" cy="23" r="3" fill="#171717"/><circle cx="37" cy="23" r="3" fill="#171717"/></svg>`;
 
 export const CONSOLE = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>skin kernel console</title>
-<link rel="icon" href="${KERNEL_PREFIX}/icon.svg" type="image/svg+xml">
+<link rel="icon" href="${KERNEL_PREFIX}/icon.png" type="image/png">
 <style>
 body{font:14px/1.5 system-ui,sans-serif;margin:0 auto;max-width:860px;padding:24px;color:#171717}
 h1{font-size:18px;margin:0 0 4px}p{color:#4d4d4d;margin:0 0 16px}
@@ -174,7 +174,7 @@ pre{white-space:pre-wrap;margin:4px 0 0;font-size:12px;color:#c41a1a}
 <h1>Kernel console</h1>
 <p id="who">&nbsp;</p>
 <p>The kernel cannot be edited by the agent. Use this page if the app itself stops working: roll back to any generation that passed the gate, or open one to look at it.</p>
-<p><a class="button" href="/">Open the live app</a> <a class="button" href="${KERNEL_PREFIX}/unpin">Follow live</a> <button id="reseed">Reset the draft to the factory seed</button></p>
+<p><a class="button" href="/">Open the live app</a> <a class="button" href="${KERNEL_PREFIX}/unpin">Follow live</a> <button id="reseed">Reset my app to the latest original</button></p>
 <table><thead><tr><th>#</th><th>Change</th><th>Status</th><th>Browser</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="5">Loading…</td></tr></tbody></table>
 <script>
 const rows = document.getElementById("rows");
@@ -196,13 +196,18 @@ const load = () => fetch("${KERNEL_PREFIX}/api/body").then((response) => respons
 	if (state.generations.length === 0) rows.innerHTML = "<tr><td colspan=5>No generations yet. Open the app to grow the first one.</td></tr>";
 });
 fetch("${KERNEL_PREFIX}/api/me").then((response) => response.json()).then((me) => { document.getElementById("who").textContent = "Signed in as " + (me.email ?? me.user) + ". This is your own app: nobody else sees or shares its generations."; });
-document.getElementById("reseed").onclick = () => confirm("Replace the draft with the factory seed? The live generation is not changed until you ship.") && post("${KERNEL_PREFIX}/api/reseed");
+document.getElementById("reseed").onclick = () => {
+	if (!confirm("Rebuild your app from the latest original? It is tested first and becomes a new version, and every earlier version stays listed, so you can switch back.")) return;
+	document.getElementById("reseed").textContent = "Building and testing… (about 20 s)";
+	fetch("${KERNEL_PREFIX}/api/reseed", { method: "POST" }).then((response) => response.json()).then((report) => {
+		alert(report.status === "live" ? "Done: version " + report.generation + " is live. Opening your app." : report.status === "unchanged" ? "Your app is already the latest original." : "Not applied: " + report.reason);
+		if (report.status === "live") location.assign("/"); else load();
+	});
+};
 load();
 </script>
 </html>
 `;
-
-const decodeBase64 = (value: string) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
 
 const respond = (body: BodyInit, type: string, cache = "no-cache") => new Response(body, { headers: { "content-type": type, "cache-control": cache } });
 
@@ -210,11 +215,10 @@ const STATIC = new Map<string, () => Response>([
 	["/sw.js", () => respond(SERVICE_WORKER, "text/javascript; charset=utf-8")],
 	["/manifest.webmanifest", () => respond(MANIFEST, "application/manifest+json")],
 	[`${KERNEL_PREFIX}/guard.js`, () => respond(GUARD, "text/javascript; charset=utf-8")],
-	[`${KERNEL_PREFIX}/icon.svg`, () => respond(ICON_SVG, "image/svg+xml", "public, max-age=86400")],
-	[`${KERNEL_PREFIX}/icon-192.png`, () => respond(decodeBase64(ICON_192), "image/png", "public, max-age=86400")],
-	[`${KERNEL_PREFIX}/icon-512.png`, () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400")],
-	[`${KERNEL_PREFIX}/icon.png`, () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400")],
-	[`${KERNEL_PREFIX}/hero.png`, () => respond(decodeBase64(ICON_512), "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/icon-192.png`, () => respond(ICON_192, "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/icon-512.png`, () => respond(ICON_512, "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/icon.png`, () => respond(ICON_512, "image/png", "public, max-age=86400")],
+	[`${KERNEL_PREFIX}/hero.png`, () => respond(HERO, "image/png", "public, max-age=86400")],
 	[`${KERNEL_PREFIX}/`, () => respond(CONSOLE, "text/html; charset=utf-8")],
 	[KERNEL_PREFIX, () => respond(CONSOLE, "text/html; charset=utf-8")],
 	[`${KERNEL_PREFIX}/unpin`, () => new Response(null, { status: 302, headers: { location: "/", "set-cookie": `${PIN_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax` } })],

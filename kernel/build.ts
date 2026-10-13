@@ -59,7 +59,7 @@ const pinScript = (generation: number) => `<script>globalThis.__GENERATION__=${g
 const HEAD_TAGS = [
 	`<link rel="manifest" href="/manifest.webmanifest">`,
 	`<meta name="theme-color" content="#171717">`,
-	`<link rel="icon" href="${KERNEL_PREFIX}/icon.svg" type="image/svg+xml">`,
+	`<link rel="icon" href="${KERNEL_PREFIX}/icon.png" type="image/png">`,
 	`<link rel="apple-touch-icon" href="${KERNEL_PREFIX}/icon-192.png">`,
 	`<link rel="stylesheet" href="${STYLES_OUTPUT}">`,
 ];
