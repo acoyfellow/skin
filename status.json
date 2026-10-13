@@ -5,7 +5,7 @@
   "constraint": "Cloudflare only: Workers, Durable Objects, Worker Loader, Workers AI. The core is a PWA. Effect stays 4.0.0 (Foldkit peer).",
   "falsifiable": "A Worker can rebuild and swap its own Foldkit + Effect UI and server from source at runtime in under 30 s, and a broken generation is never promoted.",
   "proven": [
-    "Worker Loader and @cloudflare/worker-bundler run on the production account: skin.ax.cloudflare.dev builds each generation at runtime (receipts/e2e-deployed.json)",
+    "Worker Loader and @cloudflare/worker-bundler run on the production account: the deployed host builds each generation at runtime (receipts/e2e-deployed.json)",
     "All 9 scenarios pass against the deployed Worker behind Access, in 63 s: three broken changes rejected, a good change live, a browser-start crash rolled back automatically (report delivered, 200), rollback, data survival (receipts/e2e-deployed.json, 2026-10-12T22:09Z)",
     "Per-person isolation holds on the deployed Worker with two real Access service-token identities (receipts/e2e-deployed.json)",
     "Deploys run from GitHub Actions (CI run 38381811769): version 6fdcc008 deployed from commit f1c85f1, anonymous 302 to Access, deployed e2e 10/10 in 63 s, and the receipt's version matches the deployed version (receipts/e2e-deployed.json)"

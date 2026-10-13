@@ -89,7 +89,22 @@ export const GUARD = `(() => {
 		if (typeof args[0] === "string" && args[0].includes("Application crash")) fail(String(args[1] && args[1].message ? args[1].message : args[1]));
 	};
 
-	addEventListener("load", () => setTimeout(() => (started() && !crashed ? report(true, "rendered") : fail("nothing rendered ${START_TIMEOUT_MS / 1000} s after load")), ${START_TIMEOUT_MS}));
+	const judgeStart = () => setTimeout(() => (started() && !crashed ? report(true, "rendered") : fail("nothing rendered ${START_TIMEOUT_MS / 1000} s after the page became visible")), ${START_TIMEOUT_MS});
+
+	const judgeWhenVisible = () => {
+		if (document.visibilityState === "visible") return judgeStart();
+
+		const onVisible = () => {
+			if (document.visibilityState !== "visible") return;
+
+			document.removeEventListener("visibilitychange", onVisible);
+			judgeStart();
+		};
+
+		document.addEventListener("visibilitychange", onVisible);
+	};
+
+	addEventListener("load", judgeWhenVisible);
 
 	const listen = (attempt) => {
 		const socket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "${BODY_SOCKET_PATH}");

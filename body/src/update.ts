@@ -150,6 +150,11 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		ClickedRollback: ({ generation }) => ({ model: modifyFields(model, { rollbackError: () => Option.none() }), commands: [Rollback({ generation })] }),
 		SucceededRollback: () => ({ model }),
 		FailedRollback: ({ reason }) => ({ model: modifyFields(model, { rollbackError: () => Option.some(reason) }) }),
+		ToggledVersion: ({ generation }) => ({
+			model: modifyFields(model, { openVersion: (open) => (Option.contains(open, generation) ? Option.none() : Option.some(generation)) }),
+		}),
+		ChoseVersionFilter: ({ filter }) => ({ model: modifyFields(model, { versionFilter: () => filter }) }),
+		ClosedFile: () => ({ model: modifyFields(model, { openFile: () => OpenFile.Closed() }) }),
 	});
 
 const openFile = (model: Model, path: string): UpdateReturn => {

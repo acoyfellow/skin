@@ -50,6 +50,8 @@ export const initialModel = ({ name, now }: Flags): Model => ({
 	openFile: OpenFile.Closed(),
 	filesPanelOpen: false,
 	openThoughts: [],
+	openVersion: Option.none(),
+	versionFilter: "all",
 	now,
 	activitySince: now,
 	activityKey: "",

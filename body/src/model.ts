@@ -24,6 +24,10 @@ export const OpenFile = defineTaggedUnion({
 
 export type OpenFile = typeof OpenFile.Type;
 
+export const VersionFilter = Schema.Literals(["all", "problems", "shipped"]);
+
+export type VersionFilter = typeof VersionFilter.Type;
+
 export const Model = Schema.Struct({
 	name: ConversationName,
 	phase: Phase,
@@ -48,6 +52,8 @@ export const Model = Schema.Struct({
 	openFile: OpenFile,
 	filesPanelOpen: Schema.Boolean,
 	openThoughts: Schema.Array(Schema.String),
+	openVersion: Schema.Option(Schema.Number),
+	versionFilter: VersionFilter,
 	now: Schema.Number,
 	activitySince: Schema.Number,
 	activityKey: Schema.String,

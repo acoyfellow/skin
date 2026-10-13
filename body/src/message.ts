@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 import { ConversationSummary, ServerFrame } from "./kernel/protocol";
+import { VersionFilter } from "./model";
 
 export const Message = defineMessageUnion({
 	ReceivedFrame: { frame: ServerFrame },
@@ -28,6 +29,9 @@ export const Message = defineMessageUnion({
 	FinishedResetApp: { note: Schema.String },
 	SucceededRollback: { generation: Schema.Number },
 	FailedRollback: { reason: Schema.String },
+	ToggledVersion: { generation: Schema.Number },
+	ChoseVersionFilter: { filter: VersionFilter },
+	ClosedFile: {},
 });
 
 export type Message = typeof Message.Type;

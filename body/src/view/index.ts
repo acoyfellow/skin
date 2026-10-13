@@ -4,7 +4,7 @@ import { Message } from "../message";
 import { type Model, Phase } from "../model";
 import { activityRow, elapsedSeconds } from "./activity";
 import { chatsPanel } from "./chats";
-import { filesPanel } from "./files";
+import { fileViewer, filesPanel } from "./files";
 import { transcript } from "./transcript";
 
 type H = HtmlBuilder<Message>;
@@ -114,6 +114,12 @@ const composer = (h: H, model: Model): Html =>
 		],
 	);
 
+const conversation = (h: H, model: Model): Html =>
+	h.section(
+		[h.Class("grid min-h-0 grid-rows-[1fr_auto]"), h.AriaLabel("Conversation")],
+		[h.div([h.Id("log"), h.Class("overflow-y-auto px-5 pt-8 pb-4")], [transcript(h, model)]), h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)])],
+	);
+
 export const view = (model: Model, h: H): Document => ({
 	title: model.busy ? "skin · working" : "skin",
 	body: h.div(
@@ -121,13 +127,10 @@ export const view = (model: Model, h: H): Document => ({
 		[
 			header(h, model),
 			h.main(
-				[h.Class("grid min-h-0 grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)_300px]")],
+				[h.Class("grid min-h-0 grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)_340px]")],
 				[
 					chatsPanel(h, model),
-					h.section(
-						[h.Class("grid min-h-0 grid-rows-[1fr_auto]"), h.AriaLabel("Conversation")],
-						[h.div([h.Id("log"), h.Class("overflow-y-auto px-5 pt-8 pb-4")], [transcript(h, model)]), h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)])],
-					),
+					Option.getOrElse(fileViewer(h, model), () => conversation(h, model)),
 					filesPanel(h, model),
 				],
 			),

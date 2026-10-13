@@ -30,3 +30,36 @@ Routes under `/_kernel/`, `/sw.js`, and `/manifest.webmanifest` belong to the ke
 - Add a check to `src/checks.ts` for each behavior you add to `update`.
 - Use Effect for anything that can fail, and Schema for data that crosses a boundary.
 - Never remove the chat or the generations panel without being asked. They are how the owner reaches you.
+
+## Foldkit commands: the one shape that works
+
+Every command is `Command.define(name, { args?, messages, execute })`. `execute` is an Effect when there are no `args`, and a function returning an Effect when there are. Copy `Send` or `LoadConversations` in `src/command.ts`.
+
+```ts
+export const LoadThing = Command.define("LoadThing", {
+	messages: [Message.LoadedThing, Message.FailedThing],
+	execute: Effect.gen(function* () {
+		const response = yield* Effect.tryPromise(() => fetch("/api/thing"));
+
+		return Message.LoadedThing({ text: yield* Effect.promise(() => response.text()) });
+	}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedThing({ reason: String(error) })))),
+});
+
+export const SaveThing = Command.define("SaveThing", {
+	args: { text: Schema.String },
+	messages: [Message.SavedThing],
+	execute: ({ text }) => Effect.tryPromise(() => fetch("/api/thing", { method: "POST", body: text })).pipe(Effect.as(Message.SavedThing()), Effect.orDie),
+});
+```
+
+Never do these. Each one built, passed every check, then crashed in the browser with `effect.pipe is not a function` and was rolled back:
+
+- `execute: () => Effect.gen(...)` with no `args`. Without `args`, `execute` must be the Effect itself, not a function.
+- `execute: async () => ...`, a Promise, or a plain value. It must be an Effect.
+- Returning a command from `update` without calling it: write `commands: [LoadThing()]`, not `commands: [LoadThing]`.
+- A helper such as `ask(...)` that returns a Promise or a function instead of an Effect.
+
+## Style
+
+- Change the theme by editing the `@theme` tokens in `src/styles.css`. Do not hard-code colors in views.
+- One small change per ship. If a ship is blocked, read the reason in Versions and fix only that.
