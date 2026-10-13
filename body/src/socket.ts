@@ -25,7 +25,7 @@ const MAX_BACKOFF = Duration.seconds(10);
 
 export const GIVE_UP_AFTER = 6;
 
-export const isOffline = (model: Pick<Model, "connected" | "failedConnects">): boolean => !model.connected && model.failedConnects >= GIVE_UP_AFTER;
+export const isOffline = (model: Pick<Model, "healthy" | "failedConnects">): boolean => !model.healthy && model.failedConnects >= GIVE_UP_AFTER;
 
 export const reconnectDelay = (failures: number): Duration.Duration =>
 	failures === 0 ? Duration.zero : Duration.min(Duration.millis(250 * 2 ** Math.min(failures, 6)), MAX_BACKOFF);

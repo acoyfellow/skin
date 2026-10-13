@@ -32,6 +32,7 @@ export const Model = Schema.Struct({
 	name: ConversationName,
 	phase: Phase,
 	connected: Schema.Boolean,
+	healthy: Schema.Boolean,
 	connectionEpoch: Schema.Number,
 	failedConnects: Schema.Number,
 	lives: Schema.Number,

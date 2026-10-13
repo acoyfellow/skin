@@ -74,6 +74,7 @@ describe("reconnecting", () => {
 				expect(current.failedConnects).toBe(2);
 			}),
 			message(Message.SocketOpened()),
+			message(frame(SnapshotFrame.make({ snapshot: snapshot({}) }))),
 			model((current) => {
 				expect(current.failedConnects).toBe(0);
 			}),
@@ -406,6 +407,12 @@ describe("basic: chat list", () => {
 });
 
 describe("basic: connection", () => {
+	test("a socket that opens and closes without a snapshot still counts as a failure", () => {
+		const flapping = Array.from({ length: 6 }).reduce<typeof offline>((current) => update(update(current, Message.SocketOpened()).model, Message.SocketClosed()).model, offline);
+
+		expect(isOffline(flapping)).toBe(true);
+	});
+
 	test("after six failed connects the page says offline and stops trying until Retry", () => {
 		const failing = Array.from({ length: 6 }).reduce<typeof offline>((current) => update(current, Message.SocketClosed()).model, offline);
 

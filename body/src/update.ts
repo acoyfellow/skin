@@ -90,7 +90,7 @@ const markKilled = (model: Model, killedAt: number): Model =>
 const onFrame = (model: Model, frame: ServerFrame): UpdateReturn => {
 	const next = Match.value(frame).pipe(
 		Match.tagsExhaustive({
-			Snapshot: ({ snapshot }) => noteEmptyFinish(model, applySnapshot(model, snapshot)),
+			Snapshot: ({ snapshot }) => noteEmptyFinish(model, modifyFields(applySnapshot(model, snapshot), { healthy: () => true, failedConnects: () => 0 })),
 			Live: ({ live }) => modifyFields(model, { live: () => live }),
 			Blocks: ({ blocks }) => modifyFields(model, { blocks: () => blocks }),
 			Body: ({ body }) => modifyFields(model, { body: () => body, bodyVersion: (version) => version + 1 }),
@@ -133,12 +133,13 @@ const toggled = (items: ReadonlyArray<string>, item: string) => (items.includes(
 export const update = (model: Model, message: Message): UpdateReturn =>
 	Message.match<UpdateReturn>(message, {
 		ReceivedFrame: ({ frame }) => onFrame(model, frame),
-		SocketOpened: () => ({ model: modifyFields(model, { connected: () => true, failedConnects: () => 0 }) }),
+		SocketOpened: () => ({ model: modifyFields(model, { connected: () => true, healthy: () => false }) }),
 		SocketClosed: () => ({
 			model: modifyFields(model, {
 				connected: () => false,
 				connectionEpoch: (epoch) => epoch + 1,
-				failedConnects: (failures) => (model.connected ? 0 : failures + 1),
+				failedConnects: (failures) => (model.healthy ? 0 : failures + 1),
+				healthy: () => false,
 				phase: (phase) =>
 					Match.value(phase).pipe(
 						Match.tag("Dead", ({ killedAt }) => Phase.Reviving({ killedAt })),
