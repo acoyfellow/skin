@@ -143,6 +143,22 @@ const steps: ReadonlyArray<readonly [string, string]> = [
 	["It only goes live if it works.", "Each new version is tested first. If it fails, you keep the current one. Every earlier version stays under Versions, so you can always go back."],
 ];
 
+const SKELETON_WIDTHS: ReadonlyArray<readonly [string, string]> = [
+	["justify-end", "w-2/5"],
+	["justify-start", "w-4/5"],
+	["justify-start", "w-3/5"],
+	["justify-end", "w-1/3"],
+	["justify-start", "w-3/4"],
+];
+
+const loadingState = (h: H): Html =>
+	h.div(
+		[h.Id("transcript-loading"), h.Class("mx-auto flex h-full max-w-[720px] flex-col justify-end gap-4"), h.Role("status"), h.AriaLabel("Loading conversation"), h.AriaBusy(true)],
+		SKELETON_WIDTHS.map(([side, width]) =>
+			h.div([h.Class(`flex ${side}`)], [h.div([h.Class(`h-9 ${width} rounded-lg bg-raised motion-safe:animate-pulse`)], [])]),
+		),
+	);
+
 const emptyState = (h: H): Html =>
 	h.div(
 		[h.Class("mx-auto grid max-w-[720px] gap-10")],
@@ -206,6 +222,8 @@ export const transcript = (h: H, model: Model): Html => {
 	const liveBlocks = Option.match(model.live, { onNone: () => [], onSome: (live) => live.blocks });
 
 	const placed = timeline(h, model);
+
+	if (!model.loaded) return loadingState(h);
 
 	if (Arr.isReadonlyArrayEmpty(model.blocks) && Arr.isReadonlyArrayEmpty(placed) && Arr.isReadonlyArrayEmpty(liveBlocks)) return emptyState(h);
 

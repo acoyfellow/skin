@@ -33,6 +33,8 @@ export const Model = Schema.Struct({
 	phase: Phase,
 	connected: Schema.Boolean,
 	healthy: Schema.Boolean,
+	loaded: Schema.Boolean,
+	isNew: Schema.Boolean,
 	connectionEpoch: Schema.Number,
 	failedConnects: Schema.Number,
 	lives: Schema.Number,

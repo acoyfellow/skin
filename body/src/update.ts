@@ -90,7 +90,7 @@ const markKilled = (model: Model, killedAt: number): Model =>
 const onFrame = (model: Model, frame: ServerFrame): UpdateReturn => {
 	const next = Match.value(frame).pipe(
 		Match.tagsExhaustive({
-			Snapshot: ({ snapshot }) => noteEmptyFinish(model, modifyFields(applySnapshot(model, snapshot), { healthy: () => true, failedConnects: () => 0 })),
+			Snapshot: ({ snapshot }) => noteEmptyFinish(model, modifyFields(applySnapshot(model, snapshot), { healthy: () => true, failedConnects: () => 0, loaded: () => true })),
 			Live: ({ live }) => modifyFields(model, { live: () => live }),
 			Blocks: ({ blocks }) => modifyFields(model, { blocks: () => blocks }),
 			Body: ({ body }) => modifyFields(model, { body: () => body, bodyVersion: (version) => version + 1 }),

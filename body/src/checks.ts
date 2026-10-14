@@ -428,3 +428,20 @@ describe("basic: connection", () => {
 		);
 	});
 });
+
+describe("basic: loading", () => {
+	test("an existing chat shows a loader, not the empty state, until its snapshot arrives", () => {
+		const opening = initialModel({ name, isNew: false, now: 1_000 });
+
+		expect(opening.loaded).toBe(false);
+		expect(initialModel({ name, isNew: true, now: 1_000 }).loaded).toBe(true);
+		story(
+			update,
+			given({ ...opening, connected: true }),
+			message(frame(SnapshotFrame.make({ snapshot: snapshot({ blocks: [UserBlock.make({ text: "hi" })] }) }))),
+			model((current) => {
+				expect(current.loaded).toBe(true);
+			}),
+		);
+	});
+});
