@@ -43,6 +43,10 @@ const HOUR_MS = 3_600_000;
 
 const MAX_TITLE = 80;
 
+export const BUILDER_CRASHED = "the builder failed: ";
+
+const isRetryable = (note: string): boolean => note === INTERRUPTED || note.includes(BUILDER_CRASHED);
+
 export const INTERRUPTED = "interrupted: the kernel restarted while this version was building, so it never went live. Ship again to rebuild it.";
 
 const MAX_BUILDS_PER_HOUR = 30;
@@ -406,7 +410,7 @@ export class Body extends DurableObject<BodyEnv> {
 		if (same !== undefined && (same.status !== "building" || !this.building.has(treeHash))) {
 			if (Option.contains(live, same.id)) return encodeReport({ generation: same.id, status: "unchanged", checks: same.checks, reason: "This is already the live generation." });
 
-			if (same.status === "rejected" && same.note !== INTERRUPTED) return encodeReport({ generation: same.id, status: "rejected", checks: same.checks, reason: `These exact files were already rejected as generation ${same.id}: ${same.note}` });
+			if (same.status === "rejected" && !isRetryable(same.note)) return encodeReport({ generation: same.id, status: "rejected", checks: same.checks, reason: `These exact files were already rejected as generation ${same.id}: ${same.note}` });
 		}
 
 		const limited = this.buildLimit();
@@ -512,7 +516,7 @@ export class Body extends DurableObject<BodyEnv> {
 
 		return Effect.tryPromise({ try: () => builder.build(JSON.stringify(Object.fromEntries(files)), id), catch: (cause) => String(cause) }).pipe(
 			Effect.flatMap((json) => decodeOutcome(json).pipe(Effect.mapError((error) => error.message))),
-			Effect.catch((detail) => Effect.succeed({ _tag: "Failed" as const, stage: "build", detail: `the builder failed: ${detail}` })),
+			Effect.catch((detail) => Effect.succeed({ _tag: "Failed" as const, stage: "build", detail: `${BUILDER_CRASHED}${detail}` })),
 		);
 	}
 

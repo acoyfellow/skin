@@ -19,7 +19,9 @@ const source = readFileSync("wrangler.jsonc", "utf8").replace(/^\s*\/\/.*$/gm, "
 
 const config = JSON.parse(source);
 
-config.routes = [{ pattern: host, custom_domain: true }];
+const zone = process.env.SKIN_ZONE;
+
+config.routes = zone === undefined || zone === "" ? [{ pattern: host, custom_domain: true }] : [{ pattern: `${host}/*`, zone_name: zone }];
 
 config.vars = { ...config.vars, ...authVars };
 
