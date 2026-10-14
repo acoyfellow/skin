@@ -14,6 +14,8 @@ export const SCOPES = [
   "account-settings.read",
   "ai.read",
   "ai.write",
+  "aig.read",
+  "aig.run",
 ] as const;
 
 export type OAuthClient = {
@@ -215,4 +217,19 @@ export const revoke = async (
     },
     body: new URLSearchParams({ token }).toString(),
   }).catch(() => undefined);
+};
+
+const GatewaysResponse = Schema.Struct({
+  result: Schema.Array(Schema.Struct({ id: Schema.String, authentication: Schema.optional(Schema.Boolean) })),
+});
+
+export const gatewaysOf = async (accessToken: string, accountId: string, send: typeof fetch = fetch): Promise<ReadonlyArray<{ readonly id: string; readonly authenticated: boolean }>> => {
+  const response = await send(`${CLOUDFLARE_OAUTH.api}/accounts/${encodeURIComponent(accountId)}/ai-gateway/gateways?per_page=50`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+
+  const parsed: unknown = await response.json().catch(() => null);
+  const gateways = response.ok ? Schema.decodeUnknownOption(GatewaysResponse)(parsed) : Option.none();
+
+  return Option.match(gateways, { onNone: () => [], onSome: ({ result }) => result.map(({ id, authentication }) => ({ id, authenticated: authentication === true })) });
 };

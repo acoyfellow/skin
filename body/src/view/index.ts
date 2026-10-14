@@ -60,6 +60,7 @@ const header = (h: H, model: Model): Html => {
 						[
 							h.span([h.Class("md:hidden")], [button(h, "Files", Message.ToggledFilesPanel(), SECONDARY)]),
 							h.span([h.Class("md:hidden")], [button(h, "New chat", Message.ClickedNew(), SECONDARY)]),
+							h.a([h.Id("model-settings"), h.Href("/settings"), h.Class("rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised")], ["Model"]),
 						],
 					),
 				],

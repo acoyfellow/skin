@@ -1,7 +1,11 @@
-import { Option, Schema } from "effect";
+import { Option, Predicate, Result, Schema } from "effect";
+import { MODEL_OPTIONS, modelOrDefault } from "./catalog";
+import { DIRECT_ROUTE, type RouteChoice, routeValue, validateChoice } from "./route";
+import { settingsPage } from "./settings-page";
 import { type Directory, DIRECTORY_NAME, type Grant } from "./directory";
 import {
   accountsOf,
+  gatewaysOf,
   authorizeUrl,
   exchangeCode,
   type OAuthClient,
@@ -98,6 +102,8 @@ export const directoryOf = (env: CloudflareAuthEnv) =>
   env.DIRECTORY.getByName(DIRECTORY_NAME);
 
 export class SignedOut extends Error {}
+
+export const SETTINGS_PATH = "/settings";
 
 export const freshToken = async (
   env: CloudflareAuthEnv,
@@ -274,10 +280,13 @@ export const cloudflareAuth = (
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt,
         scope: tokens.scope,
+        routeKind: "workers-ai",
+        gateway: null,
+        model: null,
       });
       await directory().openSession(session.id, owner, session.expires);
 
-      return redirect("/", [
+      return redirect(SETTINGS_PATH, [
         clearCookie(jar, jar.flow),
         cookie(
           jar,
@@ -331,6 +340,58 @@ export const cloudflareAuth = (
     return redirect("/", [clearCookie(jar, jar.session)]);
   };
 
+  const settings = async (request: Request, fallbackModel: string): Promise<Response> => {
+    const session = await sessionOf(request);
+
+    if (session === null) return redirect("/");
+
+    const fresh = await freshToken(env, session.owner, send).catch((cause) => {
+      if (cause instanceof SignedOut) return null;
+
+      throw cause;
+    });
+
+    if (fresh === null) return redirect("/");
+
+    const accounts = await accountsOf(fresh.token, send);
+    const form = request.method === "POST" ? await request.formData() : null;
+
+    if (form !== null && request.headers.get("origin") !== new URL(request.url).origin) return new Response("cross-origin request refused", { status: 403 });
+
+    const field = (name: string, otherwise: string) => {
+      const value = form?.get(name);
+
+      return Predicate.isString(value) ? value : otherwise;
+    };
+
+    const accountId = field("account", fresh.grant.accountId);
+    const gateways = await gatewaysOf(fresh.token, accountId, send);
+    const switching = field("intent", "save") === "switch-account";
+    const savedRoute = routeValue({ kind: fresh.grant.routeKind, gateway: fresh.grant.gateway });
+
+    const chosen: RouteChoice = {
+      accountId,
+      route: switching && accountId !== fresh.grant.accountId ? DIRECT_ROUTE : field("route", savedRoute),
+      model: field("model", modelOrDefault(fresh.grant.model, fallbackModel)),
+    };
+
+    const view = (saved: boolean, error: Option.Option<string>, status = 200) =>
+      html(settingsPage({ accounts, gateways, models: MODEL_OPTIONS, chosen, saved, error, firstTime: fresh.grant.model === null }), status);
+
+    if (form === null || switching) return view(false, Option.none());
+
+    const validated = validateChoice(chosen, accounts, gateways, MODEL_OPTIONS);
+
+    if (Result.isFailure(validated)) return view(false, Option.some(validated.failure.message), 400);
+
+    const route = validated.success;
+    const account = accounts.find((each) => each.id === route.accountId);
+
+    await directory().saveGrant({ ...fresh.grant, accountId: route.accountId, accountName: account?.name ?? route.accountId, routeKind: route.kind, gateway: route.gateway, model: route.model });
+
+    return view(true, Option.none());
+  };
+
   const admit = async (request: Request): Promise<CloudflareAdmission> => {
     const { pathname } = new URL(request.url);
 
@@ -361,5 +422,5 @@ export const cloudflareAuth = (
     return { _tag: "Owner", owner: session.owner, email: grant?.email ?? null };
   };
 
-  return { admit };
+  return { admit, settings };
 };

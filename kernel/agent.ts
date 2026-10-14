@@ -7,6 +7,8 @@ import { Repo } from "./files";
 import { ownerOfAgent, UserId } from "./identity";
 import { type HarnessFailed, Model, Pi } from "./harness";
 import { CLOUDFLARE_OWNER_PREFIX, type CloudflareAuthEnv, freshToken } from "./auth/cloudflare";
+import { modelOrDefault, routedWorkersAI } from "./auth/catalog";
+import type { RouteAccess } from "./auth/route";
 import { routeWorkersAIThroughBinding } from "./model";
 import { Meta } from "./meta";
 import { Broadcast, DurableObjectContext, Store } from "./services";
@@ -15,12 +17,13 @@ export type AgentEnv = CloudflareAuthEnv & { readonly AI: Ai; readonly BODY: Dur
 
 const INFERENCE_OWNER = "inference-owner";
 
-const accountModel = (env: AgentEnv, owner: string): Layer.Layer<Model> =>
-	Model.workersAIOn(env.MODEL, async () => {
-		const { grant, token } = await freshToken(env, owner);
+const routeAccess = (env: AgentEnv, owner: string) => async (): Promise<RouteAccess> => {
+	const { grant, token } = await freshToken(env, owner);
 
-		return { accountId: grant.accountId, token };
-	});
+	return { accountId: grant.accountId, kind: grant.routeKind, gateway: grant.gateway, model: modelOrDefault(grant.model, env.MODEL), token };
+};
+
+const accountModel = (env: AgentEnv, owner: string): Layer.Layer<Model> => Model.routed(env.MODEL, routedWorkersAI(routeAccess(env, owner)));
 
 const encodeSnapshot = Schema.encodeSync(SnapshotJson);
 

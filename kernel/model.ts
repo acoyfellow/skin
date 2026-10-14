@@ -36,18 +36,6 @@ const BINDING_BEARER = `Bearer ${ANSWERED_BY_BINDING}`;
 const isForBinding = (input: RequestInfo | URL, init: RequestInit | undefined): boolean =>
 	CHAT_COMPLETIONS.test(urlOf(input)) && new Request(input, init).headers.get("authorization") === BINDING_BEARER;
 
-export type AccountAccess = { readonly accountId: string; readonly token: string };
-
-export const accountAuthContext = (access: () => Promise<AccountAccess>) => ({
-	env: async (name: string): Promise<string | undefined> => {
-		if (name === "CLOUDFLARE_ACCOUNT_ID") return (await access()).accountId;
-
-		if (name === "CLOUDFLARE_API_KEY") return (await access()).token;
-
-		return undefined;
-	},
-	fileExists: async (): Promise<boolean> => false,
-});
 
 let bridge: Option.Option<{ run: AiRun }> = Option.none();
 

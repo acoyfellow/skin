@@ -189,7 +189,7 @@ pre{white-space:pre-wrap;margin:4px 0 0;font-size:12px;color:#c41a1a}
 <h1>Kernel console</h1>
 <p id="who">&nbsp;</p>
 <p>The kernel cannot be edited by the agent. Use this page if the app itself stops working: roll back to any generation that passed the gate, or open one to look at it.</p>
-<p><a class="button" href="/">Open the live app</a> <a class="button" href="${KERNEL_PREFIX}/unpin">Follow live</a> <button id="reseed">Reset my app to the latest original</button></p>
+<p><a class="button" href="/">Open the live app</a> <a class="button" href="${KERNEL_PREFIX}/unpin">Follow live</a> <a class="button" href="/settings">Model settings</a> <button id="reseed">Reset my app to the latest original</button></p>
 <table><thead><tr><th>#</th><th>Change</th><th>Status</th><th>Browser</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="5">Loading…</td></tr></tbody></table>
 <script>
 const rows = document.getElementById("rows");

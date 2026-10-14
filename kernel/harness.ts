@@ -6,7 +6,7 @@ import { type Conversation, createRegistry, defineExtension, defineTool, Harness
 import { Context, Effect, Layer, Option, Queue, Schema, Stream } from "effect";
 import { type Block, BodyFrame, type ShipReport } from "../shared/protocol";
 import { type BodyUnavailable, Repo, type RepoFiles } from "./files";
-import { type AccountAccess, accountAuthContext, bindingAuthContext } from "./model";
+import { bindingAuthContext } from "./model";
 import { Broadcast } from "./services";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import { decodePiLiveState, decodePiMessages, type PiLiveState, toBlocks } from "./view";
@@ -110,8 +110,7 @@ type ModelChoice = { readonly provider: Provider; readonly modelId: string; read
 export class Model extends Context.Service<Model, ModelChoice>()("skin/Model") {
 	static readonly workersAI = (modelId: string) => Layer.succeed(Model, { provider: cloudflareWorkersAIProvider(), modelId, options: { authContext: bindingAuthContext } });
 
-	static readonly workersAIOn = (modelId: string, access: () => Promise<AccountAccess>) =>
-		Layer.succeed(Model, { provider: cloudflareWorkersAIProvider(), modelId, options: { authContext: accountAuthContext(access) } });
+	static readonly routed = (modelId: string, provider: Provider) => Layer.succeed(Model, { provider, modelId, options: {} });
 }
 
 export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {

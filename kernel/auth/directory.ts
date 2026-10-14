@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import type { RouteKind } from "./route";
 
 export type Grant = {
   readonly owner: string;
@@ -9,6 +10,9 @@ export type Grant = {
   readonly refreshToken: string | null;
   readonly expiresAt: number;
   readonly scope: string;
+  readonly routeKind: RouteKind;
+  readonly gateway: string | null;
+  readonly model: string | null;
 };
 
 type GrantRow = {
@@ -20,7 +24,12 @@ type GrantRow = {
   refresh_token: string | null;
   expires_at: number;
   scope: string;
+  route_kind: string | null;
+  gateway: string | null;
+  model: string | null;
 };
+
+const ROUTE_COLUMNS = ["route_kind TEXT", "gateway TEXT", "model TEXT"];
 
 export const DIRECTORY_NAME = "directory";
 
@@ -33,11 +42,15 @@ export class Directory extends DurableObject<Record<string, never>> {
     ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, owner TEXT NOT NULL, expires_at INTEGER NOT NULL)",
     );
+
+    const present = new Set(ctx.storage.sql.exec<{ name: string }>("PRAGMA table_info(grants)").toArray().map((column) => column.name));
+
+    for (const column of ROUTE_COLUMNS) if (!present.has(column.split(" ")[0] ?? "")) ctx.storage.sql.exec(`ALTER TABLE grants ADD COLUMN ${column}`);
   }
 
   saveGrant(grant: Grant): void {
     this.ctx.storage.sql.exec(
-      "INSERT INTO grants (owner, email, account_id, account_name, access_token, refresh_token, expires_at, scope, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner) DO UPDATE SET email = excluded.email, account_id = excluded.account_id, account_name = excluded.account_name, access_token = excluded.access_token, refresh_token = COALESCE(excluded.refresh_token, grants.refresh_token), expires_at = excluded.expires_at, scope = excluded.scope, updated_at = excluded.updated_at",
+      "INSERT INTO grants (owner, email, account_id, account_name, access_token, refresh_token, expires_at, scope, route_kind, gateway, model, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner) DO UPDATE SET email = excluded.email, account_id = excluded.account_id, account_name = excluded.account_name, access_token = excluded.access_token, refresh_token = COALESCE(excluded.refresh_token, grants.refresh_token), expires_at = excluded.expires_at, scope = excluded.scope, route_kind = excluded.route_kind, gateway = excluded.gateway, model = excluded.model, updated_at = excluded.updated_at",
       grant.owner,
       grant.email,
       grant.accountId,
@@ -46,6 +59,9 @@ export class Directory extends DurableObject<Record<string, never>> {
       grant.refreshToken,
       grant.expiresAt,
       grant.scope,
+      grant.routeKind,
+      grant.gateway,
+      grant.model,
       Date.now(),
     );
   }
@@ -66,6 +82,9 @@ export class Directory extends DurableObject<Record<string, never>> {
           refreshToken: row.refresh_token,
           expiresAt: row.expires_at,
           scope: row.scope,
+          routeKind: row.route_kind === "gateway" ? "gateway" : "workers-ai",
+          gateway: row.gateway,
+          model: row.model,
         };
   }
 
