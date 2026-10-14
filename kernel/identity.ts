@@ -5,7 +5,7 @@ export const UserId = Schema.String.check(Schema.isPattern(/^u[0-9a-f]{20}$/)).p
 
 export type UserId = typeof UserId.Type;
 
-export type Person = { readonly user: UserId; readonly email: Option.Option<string> };
+export type Person = { readonly user: UserId; readonly subject: string; readonly email: Option.Option<string> };
 
 const OWNER_SEPARATOR = "~";
 

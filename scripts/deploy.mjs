@@ -11,9 +11,9 @@ const required = (name) => {
 
 const host = required("SKIN_HOST");
 
-const teamDomain = required("ACCESS_TEAM_DOMAIN");
+const mode = process.env.SKIN_AUTH === "cloudflare" ? "cloudflare" : "access";
 
-const audience = required("ACCESS_AUD");
+const authVars = mode === "cloudflare" ? { SKIN_AUTH: "cloudflare", OAUTH_CLIENT_ID: required("OAUTH_CLIENT_ID") } : { ACCESS_TEAM_DOMAIN: required("ACCESS_TEAM_DOMAIN"), ACCESS_AUD: required("ACCESS_AUD") };
 
 const source = readFileSync("wrangler.jsonc", "utf8").replace(/^\s*\/\/.*$/gm, "");
 
@@ -21,7 +21,7 @@ const config = JSON.parse(source);
 
 config.routes = [{ pattern: host, custom_domain: true }];
 
-config.vars = { ...config.vars, ACCESS_TEAM_DOMAIN: teamDomain, ACCESS_AUD: audience };
+config.vars = { ...config.vars, ...authVars };
 
 delete config.$schema;
 

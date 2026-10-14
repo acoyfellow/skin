@@ -6,11 +6,21 @@ import type { Body } from "./body";
 import { Repo } from "./files";
 import { ownerOfAgent, UserId } from "./identity";
 import { type HarnessFailed, Model, Pi } from "./harness";
+import { CLOUDFLARE_OWNER_PREFIX, type CloudflareAuthEnv, freshToken } from "./auth/cloudflare";
 import { routeWorkersAIThroughBinding } from "./model";
 import { Meta } from "./meta";
 import { Broadcast, DurableObjectContext, Store } from "./services";
 
-export type AgentEnv = { readonly AI: Ai; readonly BODY: DurableObjectNamespace<Body>; readonly MODEL: string };
+export type AgentEnv = CloudflareAuthEnv & { readonly AI: Ai; readonly BODY: DurableObjectNamespace<Body>; readonly MODEL: string };
+
+const INFERENCE_OWNER = "inference-owner";
+
+const accountModel = (env: AgentEnv, owner: string): Layer.Layer<Model> =>
+	Model.workersAIOn(env.MODEL, async () => {
+		const { grant, token } = await freshToken(env, owner);
+
+		return { accountId: grant.accountId, token };
+	});
 
 const encodeSnapshot = Schema.encodeSync(SnapshotJson);
 
@@ -34,8 +44,14 @@ export const conversationLayer = (ctx: DurableObjectState, model: Layer.Layer<Mo
 
 const NO_OWNER = "u00000000000000000000";
 
+const modelFor = (ctx: DurableObjectState, env: AgentEnv): Layer.Layer<Model> => {
+	const owner = ctx.storage.kv.get<string>(INFERENCE_OWNER);
+
+	return owner !== undefined && owner.startsWith(CLOUDFLARE_OWNER_PREFIX) ? accountModel(env, owner) : Model.workersAI(env.MODEL);
+};
+
 const layerFor = (ctx: DurableObjectState, env: AgentEnv) =>
-	conversationLayer(ctx, Model.workersAI(env.MODEL), Repo.layer(env.BODY, Option.getOrElse(ownerOfAgent(ctx.id.name), () => UserId.make(NO_OWNER))));
+	conversationLayer(ctx, modelFor(ctx, env), Repo.layer(env.BODY, Option.getOrElse(ownerOfAgent(ctx.id.name), () => UserId.make(NO_OWNER))));
 
 const RESERVED_CLOSE_CODES = new Set([1005, 1006, 1015]);
 
@@ -84,6 +100,13 @@ export class Agent extends DurableObject<AgentEnv> {
 
 	getSnapshot(name: ConversationName): Promise<string> {
 		return this.run(Option.some(name), withAgent((agent) => agent.snapshot).pipe(Effect.map(encodeSnapshot)));
+	}
+
+	useInferenceOf(owner: string): void {
+		if (this.ctx.storage.kv.get<string>(INFERENCE_OWNER) === owner) return;
+
+		this.ctx.storage.kv.put(INFERENCE_OWNER, owner);
+		this.runtime = Option.none();
 	}
 
 	send(name: ConversationName, text: string): Promise<string> {

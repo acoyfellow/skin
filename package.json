@@ -1,47 +1,48 @@
 {
-  "name": "skin",
-  "version": "0.0.1",
-  "description": "An app that rewrites its own code while you use it, and can't brick itself.",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/acoyfellow/skin.git"
-  },
-  "engines": {
-    "node": ">=22.19.0"
-  },
-  "scripts": {
-    "seed": "node scripts/seed.mjs",
-    "dev": "npm run seed && node scripts/dev.mjs",
-    "deploy": "node scripts/deploy.mjs",
-    "typecheck": "npm run seed && tsc -p . && tsc -p body",
-    "lint": "oxlint",
-    "test": "npm run seed && vitest run",
-    "check": "bash scripts/gate.sh",
-    "gate": "bash scripts/gate.sh",
-    "e2e": "node scripts/e2e.mjs",
-    "vendor:anti-slop": "node scripts/vendor-anti-slop.mjs"
-  },
-  "dependencies": {
-    "@cloudflare/worker-bundler": "0.2.6",
-    "@earendil-works/chord": "1.1.0",
-    "@earendil-works/pi-ai": "1.1.0",
-    "@earendil-works/pi-durable": "1.1.0",
-    "@effect/platform-browser": "4.0.0",
-    "effect": "4.0.0",
-    "foldkit": "0.168.0",
-    "tailwindcss": "4.3.3"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261012.1",
-    "@oxlint/plugins": "1.78.0",
-    "happy-dom": "^20.14.5",
-    "oxlint": "1.78.0",
-    "playwright": "^1.64.0",
-    "typescript": "^7.0.2",
-    "vitest": "^5.0.3",
-    "wrangler": "4.149.0"
-  }
+	"name": "skin",
+	"version": "0.0.1",
+	"description": "An app that rewrites its own code while you use it, and can't brick itself.",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/acoyfellow/skin.git"
+	},
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"scripts": {
+		"seed": "node scripts/seed.mjs",
+		"dev": "npm run seed && node scripts/dev.mjs",
+		"deploy": "node scripts/deploy.mjs",
+		"typecheck": "npm run seed && tsc -p . && tsc -p body",
+		"lint": "oxlint",
+		"test": "npm run seed && vitest run",
+		"check": "bash scripts/gate.sh",
+		"gate": "bash scripts/gate.sh",
+		"e2e": "node scripts/e2e.mjs",
+		"vendor:anti-slop": "node scripts/vendor-anti-slop.mjs",
+		"basic": "node ../basic/run.mjs --floor --app=skin"
+	},
+	"dependencies": {
+		"@cloudflare/worker-bundler": "0.2.6",
+		"@earendil-works/chord": "1.1.0",
+		"@earendil-works/pi-ai": "1.1.0",
+		"@earendil-works/pi-durable": "1.1.0",
+		"@effect/platform-browser": "4.0.0",
+		"effect": "4.0.0",
+		"foldkit": "0.168.0",
+		"tailwindcss": "4.3.3"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^5.20261012.1",
+		"@oxlint/plugins": "1.78.0",
+		"happy-dom": "^20.14.5",
+		"oxlint": "1.78.0",
+		"playwright": "^1.64.0",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.3",
+		"wrangler": "4.149.0"
+	}
 }

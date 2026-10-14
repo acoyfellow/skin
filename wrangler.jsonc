@@ -24,10 +24,14 @@
 		"bindings": [
 			{ "name": "AGENT", "class_name": "Agent" },
 			{ "name": "BODY", "class_name": "Body" },
-			{ "name": "BUILDER", "class_name": "Builder" }
+			{ "name": "BUILDER", "class_name": "Builder" },
+			{ "name": "DIRECTORY", "class_name": "Directory" }
 		]
 	},
-	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Agent", "Body", "Builder"] }],
+	"migrations": [
+		{ "tag": "v1", "new_sqlite_classes": ["Agent", "Body", "Builder"] },
+		{ "tag": "v2", "new_sqlite_classes": ["Directory"] }
+	],
 	// Building a generation bundles Effect and Foldkit with esbuild-wasm, which takes about 10 s of CPU.
 	"limits": { "cpu_ms": 300000 },
 	"observability": {

@@ -239,6 +239,10 @@ const STATIC = new Map<string, () => Response>([
 	[`${KERNEL_PREFIX}/unpin`, () => new Response(null, { status: 302, headers: { location: "/", "set-cookie": `${PIN_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax` } })],
 ]);
 
+const PUBLIC_ASSETS = new Set([`${KERNEL_PREFIX}/icon.png`, `${KERNEL_PREFIX}/icon-192.png`, `${KERNEL_PREFIX}/icon-512.png`, `${KERNEL_PREFIX}/hero.png`]);
+
+export const publicAsset = (pathname: string): Option.Option<Response> => (PUBLIC_ASSETS.has(pathname) ? Option.fromNullishOr(STATIC.get(pathname)?.()) : Option.none());
+
 const PIN_ROUTE = /^\/_kernel\/pin\/(\d+)$/;
 
 export const kernelAsset = (pathname: string): Option.Option<Response> => {

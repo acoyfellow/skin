@@ -25,17 +25,21 @@ import { accessConfig, accessToken, verifyAccessToken } from "./access";
 import { Agent, type AgentEnv } from "./agent";
 import { Body } from "./body";
 import { Builder } from "./builder";
-import { kernelAsset } from "./shell";
+import { kernelAsset, publicAsset } from "./shell";
 import { agentName, devSubject, type Person, type UserId, userIdOf } from "./identity";
 import { BodyStore } from "./store";
+import { type CloudflareAuthEnv, cloudflareAuth } from "./auth/cloudflare";
+import { Directory } from "./auth/directory";
 
-export { Agent, Body, Builder, BodyStore };
+export { Agent, Body, Builder, BodyStore, Directory };
 
-type Env = AgentEnv & {
+type Env = AgentEnv &
+	CloudflareAuthEnv & {
 	readonly AGENT: DurableObjectNamespace<Agent>;
 	readonly ACCESS_TEAM_DOMAIN?: string;
 	readonly ACCESS_AUD?: string;
 	readonly LOCAL_DEV_WITHOUT_ACCESS?: string;
+	readonly SKIN_AUTH?: string;
 	readonly CF_VERSION_METADATA?: WorkerVersionMetadata;
 };
 
@@ -86,11 +90,12 @@ const storedKills = (env: Env, user: UserId, name: ConversationName) =>
 		Effect.map((snapshot) => snapshot.events.filter(isKilled).length),
 	);
 
-const handlers = (env: Env, user: UserId) =>
+const handlers = (env: Env, user: UserId, subject: string) =>
 	AgentRpcs.toLayer({
 		Snapshot: ({ name }) => call(() => agentFor(env, user, name).getSnapshot(name)).pipe(Effect.flatMap(decodeSnapshot), Effect.catchTag("SchemaError", Effect.die)),
 		Send: ({ name, text }) =>
-			call(() => agentFor(env, user, name).send(name, text)).pipe(
+			call(() => agentFor(env, user, name).useInferenceOf(subject)).pipe(
+				Effect.andThen(call(() => agentFor(env, user, name).send(name, text))),
 				Effect.flatMap(decodeSend),
 				Effect.catchTag("SchemaError", Effect.die),
 				Effect.flatMap(Effect.fromResult),
@@ -130,30 +135,30 @@ const handlers = (env: Env, user: UserId) =>
 			bodyCall(() => bodyOf(env, user).rollback(generation)).pipe(Effect.flatMap(decodeRollback), Effect.catchTag("SchemaError", Effect.die), Effect.flatMap(Effect.fromResult)),
 	});
 
-const buildRpcHandler = (env: Env, user: UserId) =>
+const buildRpcHandler = (env: Env, user: UserId, subject: string) =>
 	HttpRouter.toWebHandler(
 		RpcServer.layerHttp({ group: AgentRpcs, path: RPC_PATH, protocol: "http" }).pipe(
-			Layer.provide(handlers(env, user)),
+			Layer.provide(handlers(env, user, subject)),
 			Layer.provide(RpcSerialization.layerJson),
 		),
 		{ disableLogger: true },
 	).handler;
 
-const rpcHandlers = new WeakMap<Env, Map<UserId, ReturnType<typeof buildRpcHandler>>>();
+const rpcHandlers = new WeakMap<Env, Map<string, ReturnType<typeof buildRpcHandler>>>();
 
 const MAX_CACHED_HANDLERS = 64;
 
-const rpcHandler = (env: Env, user: UserId): ReturnType<typeof buildRpcHandler> => {
-	const forEnv = rpcHandlers.get(env) ?? new Map<UserId, ReturnType<typeof buildRpcHandler>>();
-	const cached = forEnv.get(user);
+const rpcHandler = (env: Env, user: UserId, subject: string): ReturnType<typeof buildRpcHandler> => {
+	const forEnv = rpcHandlers.get(env) ?? new Map<string, ReturnType<typeof buildRpcHandler>>();
+	const cached = forEnv.get(subject);
 
 	if (cached !== undefined) return cached;
 
 	if (forEnv.size >= MAX_CACHED_HANDLERS) forEnv.clear();
 
-	const built = buildRpcHandler(env, user);
+	const built = buildRpcHandler(env, user, subject);
 
-	forEnv.set(user, built);
+	forEnv.set(subject, built);
 	rpcHandlers.set(env, forEnv);
 
 	return built;
@@ -225,12 +230,22 @@ const NOT_CONFIGURED = "skin is locked: set ACCESS_TEAM_DOMAIN and ACCESS_AUD an
 type Admission = { readonly _tag: "Admitted"; readonly person: Person } | { readonly _tag: "Refused"; readonly response: Response };
 
 const admitted = (subject: string, email: Option.Option<string>): Effect.Effect<Admission> =>
-	Effect.map(userIdOf(subject), (user) => ({ _tag: "Admitted", person: { user, email } }));
+	Effect.map(userIdOf(subject), (user) => ({ _tag: "Admitted", person: { user, subject, email } }));
 
 const refused = (response: Response): Effect.Effect<Admission> => Effect.succeed({ _tag: "Refused", response });
 
+const admitWithCloudflare = async (request: Request, env: Env): Promise<Admission> => {
+	const result = await cloudflareAuth(env).admit(request);
+
+	if (result._tag === "Response") return { _tag: "Refused", response: result.response };
+
+	return Effect.runPromise(admitted(result.owner, Option.fromNullishOr(result.email)));
+};
+
 const admit = (request: Request, env: Env): Promise<Admission> => {
 	if (isLocalDev(request, env)) return Effect.runPromise(admitted(devSubject(request), Option.none()));
+
+	if (env.SKIN_AUTH === "cloudflare") return admitWithCloudflare(request, env);
 
 	return Option.match(accessConfig(env.ACCESS_TEAM_DOMAIN, env.ACCESS_AUD), {
 		onNone: () => Effect.runPromise(refused(refuse(503, NOT_CONFIGURED))),
@@ -252,6 +267,10 @@ const whoAmI = (person: Person, env: Env) => Response.json({ user: person.user, 
 
 export default {
 	async fetch(request, env) {
+		const open = publicAsset(new URL(request.url).pathname);
+
+		if (Option.isSome(open)) return open.value;
+
 		const admission = await admit(request, env);
 
 		if (admission._tag === "Refused") return admission.response;
@@ -264,7 +283,7 @@ export default {
 
 		if (isWrite && !isSameOrigin(request)) return refuse(403, "cross-origin request refused");
 
-		if (pathname === RPC_PATH || pathname === `${RPC_PATH}/`) return rpcHandler(env, user)(rpcRequest(request), Context.empty());
+		if (pathname === RPC_PATH || pathname === `${RPC_PATH}/`) return rpcHandler(env, user, admission.person.subject)(rpcRequest(request), Context.empty());
 
 		const socketMatch = SOCKET_ROUTE.exec(pathname);
 

@@ -67,6 +67,17 @@ BASE=http://localhost:8790 npm run e2e
 
 `test/local/wrangler.jsonc` is the real kernel without the AI binding, so everything but the chat works offline. The first request grows generation 1 from the seed (about 20 s). For the chat, run `npx wrangler login` and `npm run dev`, which uses Workers AI through a remote binding.
 
+## Deploy with Sign in with Cloudflare
+
+Set `SKIN_AUTH=cloudflare` to open skin to anyone with a Cloudflare account. Each person signs in through Cloudflare's OAuth consent screen and picks an account, and their agent's model calls run on that account's Workers AI with their token, not yours. This is the setup on [skin.coey.dev](https://skin.coey.dev).
+
+1. Create an OAuth client on your account: response type `code`, grant types `authorization_code` and `refresh_token`, redirect URI `https://<host>/oauth/callback`, scopes `offline_access user-details.read account-settings.read ai.read ai.write`.
+2. Fill in `deploy/coey.env` (or your own copy) with the host and the client ID.
+3. Set the two Worker secrets: `npx wrangler secret put OAUTH_CLIENT_SECRET` and `npx wrangler secret put SESSION_SECRET` (32 characters or more).
+4. Deploy: `set -a; . deploy/coey.env; set +a; npm run deploy`.
+
+Chat in every instance is held to [Basic](https://github.com/acoyfellow/basic), the conformance suite for agent chat. Run `BASE=https://<host> npm run basic` to check the floor.
+
 ## Deploy behind Cloudflare Access
 
 skin is locked by default: every request must carry a Cloudflare Access token, which the Worker verifies itself, and there is no `workers.dev` or preview URL. Worker Loader must be enabled on the account.
