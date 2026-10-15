@@ -1,0 +1,65 @@
+.github/workflows/ci.yml
+  s_87bb0cc3d5fc34::t_b161c2936816b8 65-67,75,77-79,83-84
+README.md
+  s_1edf569f022c1c::t_37dbe75bb1e9db 7,64,68,70,72,74-75,77,79,81-84,86,88,92,96,107
+kernel/agent.ts
+  s_1edf569f022c1c::t_eab011f5fd6405 9-11,15,19-21,23,27,29,57
+kernel/auth/catalog.ts
+  s_1edf569f022c1c::t_2fde4e040fb6d7 1-5,8,32-33,51-55,57-71,73-74,76-87
+kernel/auth/cloudflare.ts
+  s_1edf569f022c1c::t_e38c4f4f7baef5 1,3,8,347,352-353,355-356,358-360,365-381,384-388,390,392-393,395
+kernel/auth/directory.ts
+  s_1edf569f022c1c::t_ca0de684fdad80 2,13
+kernel/auth/route-check.ts
+  s_1edf569f022c1c::t_c23f1c6a35f751 1-3,5,7,9,11,13,15,17-18,20,22-23,25,27,30-40,42
+kernel/auth/route.test.ts
+  s_1edf569f022c1c::t_1bd028a2c7169a 1-4,6,8,10-13,15-18,20,22,24,26-27,29-31,33,35-36,38-39,41-42,44-45,47,49-51,53-56,58-61,63-68,70-74,76-77,79-80,82-83,85-86,88-89,91,94-95,97-98,100-101,103,106-110,112-114,116-120,122-123,125-126,128-132,134-135,137-138,140-144,146-148,150-151,153-157,159-160,162-165,167-169,171,173,175-177,179-181
+kernel/auth/route.ts
+  s_1edf569f022c1c::t_f36ed4713041d6 1,3,5,7-12,14,16-30,32,34-77,80-87,90-104,107-113,115,117,119,121-122,124-125
+kernel/auth/settings-page.ts
+  s_1edf569f022c1c::t_0e535417266890 2,7-8,10,18-21,32-44,49,104-105,109-121,123-124,127-128
+kernel/harness.ts
+  s_1edf569f022c1c::t_fa65d2cebc865d 8,110,112
+kernel/index.ts
+  s_1edf569f022c1c::t_d1d3a4f1de2c38 30-31,240-241,255-256,258
+kernel/model.ts
+  s_1edf569f022c1c::t_7d5f2c75e9a7e6 6,8,10,17,19-23
+kernel/who-pays.test.ts
+  s_1edf569f022c1c::t_4d602b34c20b03 1-2,4-6,10-12,14,16-17,19,21-23,25,28-30,32-33,35,38-41,43-44,46,48,51-58,60-61
+scripts/deploy.mjs
+  s_1edf569f022c1c::t_4ae653adde789f 15-16,50
+scripts/e2e.mjs
+  s_87bb0cc3d5fc34::t_ba5b6d96cd7cb3 8-10,22,308
+scripts/fresh-start-gate.mjs
+  s_87bb0cc3d5fc34::t_d69067aa8293f5 5
+scripts/gate.sh
+  s_1edf569f022c1c::t_c6867882ec6410 17,32
+scripts/prod-smoke.mjs
+  s_1edf569f022c1c::t_7e527802a3706b 24,51-52,54-56,58,63,119-141,143,146
+wrangler.jsonc
+  s_1edf569f022c1c::t_57002c7ac78cf0 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "93e0edaa580ee6a3df9e26b7f56ab8f1cbd40b14",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    },
+    "s_87bb0cc3d5fc34": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a12ab1-4f16-71b5-98b4-fa9e4f420c7f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
