@@ -1,0 +1,53 @@
+body/src/entry.ts
+  s_1edf569f022c1c::t_caad01a962faae 11,27-28
+body/src/layout.test.ts
+  s_d58794dec92dc7::t_52b72db44b56f3 1-54
+body/src/layout.ts
+  s_aff9605c3b4204::t_591650edc808f4 1-229
+body/src/styles.css
+  s_1edf569f022c1c::t_6c515182bdde97 72-144
+body/src/view/chats.ts
+  s_1edf569f022c1c::t_f33a18affbc0df 129
+body/src/view/files.ts
+  s_1edf569f022c1c::t_19def1a212d4ad 310-311
+body/src/view/index.ts
+  s_1edf569f022c1c::t_d0c5e7ec2fc3bd 12,40-87,110-111,223,237,240,242
+body/src/view/transcript.ts
+  s_1edf569f022c1c::t_29b54d0e09061a 167,173,184,188,191
+kernel/auth/cloudflare.ts
+  s_1edf569f022c1c::t_ec9fb53ff8527e 179
+scripts/prod-smoke.mjs
+  s_1edf569f022c1c::t_b96abd4ce1fe47 123-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6754cebe315eac358a9cc72c2ccf0a2d1c69ec2e",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    },
+    "s_aff9605c3b4204": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0806f-f6e6-7378-a167-08e626c7de42",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    },
+    "s_d58794dec92dc7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a115e6-5bb3-75ac-b511-2988f1aebfad",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
