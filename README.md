@@ -4,7 +4,7 @@
 
 **A web app that every person who signs in grows into their own: each account gets its own agent, which rewrites that person's copy of the app while they use it, and can't brick it. A reference for [Pi Durable](https://github.com/earendil-works/pi/tree/main/packages/durable), [Worker Loader](https://developers.cloudflare.com/workers/runtime-apis/bindings/worker-loader/), [Effect v4](https://effect.website), and [Foldkit](https://foldkit.dev) on Cloudflare.**
 
-Self-modifying agents like [bb](https://getbb.app) and [Ouroboros](https://github.com/razzant/ouroboros) evolve one repository on one machine: the tool itself. skin evolves per person. It is a web app behind a login; whoever has access signs in and gets their own body and their own agent, and every change that agent makes lands only in that person's app. Everyone starts from the same seed and grows apart.
+Self-modifying agents like [bb](https://getbb.app) and [Ouroboros](https://github.com/razzant/ouroboros) evolve one repository on one machine: the tool itself. skin evolves per person. It is a web app behind a login; anyone with a Cloudflare account signs in and gets their own body and their own agent, and every change that agent makes lands only in that person's app. Everyone starts from the same seed and grows apart.
 
 Self-modifying tools let an agent change the app you are working in. The catch is the failure mode: one bad change and the tool you need to fix it is the thing that's broken. skin splits itself in two. A small **kernel**, deployed once, holds the agent, the generations, and the gate. Everything else, the **body**, is source the agent edits at runtime: the Foldkit UI (including the chat you talk to it through), the server, the styles, and the checks. A change goes live only after the kernel builds it into a new generation inside Cloudflare and it passes the gate. If a generation still crashes in your browser, the kernel rolls it back on its own.
 
@@ -61,47 +61,39 @@ You need Node 22.19 or newer.
 ```sh
 npm install
 npx playwright install chromium   # for the e2e run
-bash test/local/run.sh            # http://localhost:8790, no Access, no Workers AI
+bash test/local/run.sh            # http://localhost:8790, loopback dev identity, no model calls
 BASE=http://localhost:8790 npm run e2e
 ```
 
-`test/local/wrangler.jsonc` is the real kernel without the AI binding, so everything but the chat works offline. The first request grows generation 1 from the seed (about 20 s). For the chat, run `npx wrangler login` and `npm run dev`, which uses Workers AI through a remote binding.
+`test/local/wrangler.jsonc` is the real kernel with a loopback-only dev identity (`X-Dev-User`), so everything but the chat works offline. The dev identity has no Cloudflare account, so chat answers "Sign in with Cloudflare first". The first request grows generation 1 from the seed (about 20 s).
 
-## Deploy with Sign in with Cloudflare
+## Deploy
 
-Set `SKIN_AUTH=cloudflare` to open skin to anyone with a Cloudflare account. Each person signs in through Cloudflare's OAuth consent screen and picks an account, and their agent's model calls run on that account's Workers AI with their token, not yours. This is the setup on [skin.coey.dev](https://skin.coey.dev).
+skin has one sign-in: Sign in with Cloudflare. Each person signs in on Cloudflare's consent screen and picks the accounts skin may use. **The signed-in person always pays for their own model calls.** In `/settings` they pick one of those accounts, a route, and a model:
 
-1. Create an OAuth client on your account: response type `code`, grant types `authorization_code` and `refresh_token`, redirect URI `https://<host>/oauth/callback`, scopes `offline_access user-details.read account-settings.read ai.read ai.write`.
-2. Fill in `deploy/coey.env` (or your own copy) with the host and the client ID.
+- **Workers AI, direct**: `api.cloudflare.com/client/v4/accounts/<their account>/ai/v1`, sent with `Authorization: Bearer <their token>`.
+- **One of their own AI Gateways** (authentication on): `gateway.ai.cloudflare.com/v1/<their account>/<their gateway>/<anthropic|openai|compat>`, sent with `cf-aig-authorization: Bearer <their token>`. This route is needed for Claude and GPT.
+
+Every call strips `authorization`, `cf-aig-authorization` and `x-api-key`, then adds that person's token. The token is refreshed when it is close to expiring. The Worker has no AI binding and no gateway of its own, so it cannot run a model on the deployer's account. A conversation with no signed-in owner gets "Sign in with Cloudflare first" and no model call is made.
+
+There is no `workers.dev` or preview URL. Worker Loader must be enabled on the account.
+
+1. Create an OAuth client: response type `code`, grant types `authorization_code` and `refresh_token`, redirect URI `https://<host>/oauth/callback`, scopes `offline_access user-details.read account-settings.read ai.read ai.write aig.read aig.run`.
+2. Fill in `deploy/coey.env` (or your own copy) with `SKIN_HOST`, `OAUTH_CLIENT_ID`, and `SKIN_ZONE` if the zone has no custom-domain slots left.
 3. Set the two Worker secrets: `npx wrangler secret put OAUTH_CLIENT_SECRET` and `npx wrangler secret put SESSION_SECRET` (32 characters or more).
-4. Deploy: `set -a; . deploy/coey.env; set +a; npm run deploy`.
+4. Deploy: `set -a; . deploy/coey.env; set +a; npm run deploy`. The deploy runs `scripts/prod-smoke.mjs` against the new version and rolls back if it fails.
+
+The smoke test runs headless with a signed-in session cookie (`SMOKE_SESSION`, or `.debug/session.txt`). It checks that an anonymous caller is refused, that a fresh build goes live, that a model call goes to the signed-in person's own account, and that a real chat reply comes back.
 
 Chat in every instance is held to [Basic](https://github.com/acoyfellow/basic), the conformance suite for agent chat. Run `BASE=https://<host> npm run basic` to check the floor.
 
-## Deploy behind Cloudflare Access
-
-skin is locked by default: every request must carry a Cloudflare Access token, which the Worker verifies itself, and there is no `workers.dev` or preview URL. Worker Loader must be enabled on the account.
-
-1. Create a self-hosted Access application for your hostname. Allow whoever should get their own app (an email domain works). For CI, add a Service Auth policy with two service tokens, one per test identity.
-2. Deploy with the hostname and the application's values in the environment. Nothing internal is committed: `scripts/deploy.mjs` writes a gitignored `wrangler.deploy.jsonc`.
-
-   ```sh
-   SKIN_HOST=skin.example.com ACCESS_TEAM_DOMAIN=https://<team>.cloudflareaccess.com ACCESS_AUD=<aud tag> npm run deploy
-   ```
-
-3. Run the end-to-end check against it as two people:
-
-   ```sh
-   BASE=https://skin.example.com CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… CF_ACCESS_CLIENT_ID_B=… CF_ACCESS_CLIENT_SECRET_B=… npm run e2e
-   ```
-
 ## What it deliberately does not do
 
-- **It does not let the agent change the kernel.** The Access check, the gate, rollback, the crash guard, the service worker, and the console are fixed at deploy. `src/kernel/protocol.ts` in the body is replaced on every build, so the agent cannot break the contract with the kernel.
+- **It does not let the agent change the kernel.** Sign-in, the gate, rollback, the crash guard, the service worker, and the console are fixed at deploy. `src/kernel/protocol.ts` in the body is replaced on every build, so the agent cannot break the contract with the kernel.
 - **It does not typecheck generations.** esbuild strips types; the gate is bundle, boot, checks, and page. A type error that still runs gets through.
 - **It does not roll back crashes after start.** A generation that started once and crashes later is reported to the guard and shown in a banner, but stays live until you or the agent roll back.
 - **It does not give body code the network or any secret.** Generations run with `globalOutbound: null`. The only binding is `STORE`.
-- **It does not share generations between people.** Each signed-in identity has its own Body, agents, generations, and `STORE`, keyed by a hash of the Access subject. Nothing crosses between them; there is no way yet to fork someone else's app.
+- **It does not share generations between people.** Each signed-in identity has its own Body, agents, generations, and `STORE`, keyed by a hash of the Cloudflare user id. Nothing crosses between them; there is no way yet to fork someone else's app.
 - **It does not meter the model per person.** Builds are limited per person (one at a time, 30 an hour); Workers AI usage is not yet.
 
 ## Where to edit behavior
@@ -112,7 +104,7 @@ skin is locked by default: every request must carry a Cloudflare Access token, w
 | `kernel/build.ts` | How a generation is built: bundle, Tailwind, the page the kernel wraps around it |
 | `kernel/harness.ts` | The agent's prompt and tools, on Pi Durable |
 | `kernel/shell.ts` | The crash guard, service worker, manifest, and kernel console |
-| `kernel/index.ts`, `kernel/access.ts` | Access check, routes, the owner API under `/_kernel/api/` |
+| `kernel/index.ts`, `kernel/auth/` | Sign in with Cloudflare, per-user model routing, routes, the owner API under `/_kernel/api/` |
 | `body/` | The seed: the first generation. After that, the agent owns it. `body/AGENTS.md` is its guide |
 | `shared/protocol.ts` | Schemas for everything that crosses a boundary |
 

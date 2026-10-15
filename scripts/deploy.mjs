@@ -11,9 +11,9 @@ const required = (name) => {
 
 const host = required("SKIN_HOST");
 
-const mode = process.env.SKIN_AUTH === "cloudflare" ? "cloudflare" : "access";
 
-const authVars = mode === "cloudflare" ? { SKIN_AUTH: "cloudflare", OAUTH_CLIENT_ID: required("OAUTH_CLIENT_ID") } : { ACCESS_TEAM_DOMAIN: required("ACCESS_TEAM_DOMAIN"), ACCESS_AUD: required("ACCESS_AUD") };
+
+const authVars = { OAUTH_CLIENT_ID: required("OAUTH_CLIENT_ID") };
 
 const source = readFileSync("wrangler.jsonc", "utf8").replace(/^\s*\/\/.*$/gm, "");
 
@@ -23,11 +23,7 @@ const zone = process.env.SKIN_ZONE;
 
 config.routes = zone === undefined || zone === "" ? [{ pattern: host, custom_domain: true }] : [{ pattern: `${host}/*`, zone_name: zone }];
 
-const gateway = process.env.SKIN_AI_GATEWAY ?? "";
-
 config.vars = { ...config.vars, ...authVars };
-
-if (gateway !== "") config.vars.SKIN_AI_GATEWAY = gateway;
 
 delete config.$schema;
 
@@ -51,7 +47,7 @@ process.stdout.write(deployed);
 
 const deployedVersion = deployed.match(/Current Version ID: ([0-9a-f-]{36})/)?.[1] ?? "";
 
-const smokeWanted = mode === "cloudflare" && !process.argv.includes("--skip-smoke");
+const smokeWanted = !process.argv.includes("--skip-smoke");
 
 if (smokeWanted) {
 	const smoke = spawnSync("node", ["scripts/prod-smoke.mjs"], { stdio: "inherit", env: { ...process.env, SMOKE_BASE: `https://${host}`, SMOKE_EXPECT_VERSION: deployedVersion } });

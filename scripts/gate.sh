@@ -14,7 +14,7 @@ npx tsc -p . && npx tsc -p body
 step "lint"
 npm run --silent lint
 
-step "tests (body stories, Access checks, and the agent killed three times offline in workerd)"
+step "tests (body stories, sign-in and who-pays checks, and the agent killed three times offline in workerd)"
 npx vitest run
 
 step "README code excerpts match the source"
@@ -29,7 +29,7 @@ for config in $(git ls-files '*wrangler.jsonc'); do
 	grep -Eq '"preview_urls":[[:space:]]*false' "$config" || { echo "$config: preview_urls must be false"; exit 1; }
 done
 
-step "the deployed config cannot skip the Access check"
+step "the deployed config cannot skip sign-in"
 if grep -q 'LOCAL_DEV_WITHOUT_ACCESS' wrangler.jsonc; then
 	echo "wrangler.jsonc must not set LOCAL_DEV_WITHOUT_ACCESS"
 	exit 1

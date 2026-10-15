@@ -5,7 +5,9 @@ const BASE = (process.env.BASE ?? "http://localhost:8790").replace(/\/$/, "");
 
 const TARGET = process.env.TARGET ?? (BASE.includes("localhost") ? "local" : "deployed");
 
-const ACCESS = process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET ? { "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID, "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET } : {};
+const sessionHeader = (value) => (value === undefined || value === "" ? undefined : { cookie: `__Host-skin_session=${value}` });
+
+const ACCESS = sessionHeader(process.env.SKIN_SESSION) ?? {};
 
 const ORIGIN = new URL(BASE).origin;
 
@@ -17,9 +19,7 @@ const PERSON_A = LOCAL ? { "X-Dev-User": `a-${NONCE}` } : ACCESS;
 
 const PERSON_B = LOCAL
 	? { "X-Dev-User": `b-${NONCE}` }
-	: process.env.CF_ACCESS_CLIENT_ID_B && process.env.CF_ACCESS_CLIENT_SECRET_B
-		? { "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID_B, "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET_B }
-		: undefined;
+	: sessionHeader(process.env.SKIN_SESSION_B);
 
 const results = [];
 
@@ -305,7 +305,7 @@ await scenario("rolling back makes the seed live again and resets the draft to m
 });
 
 await scenario("another person gets their own app, untouched by everything above", "B grows their own first generation from the seed; B sees none of A's generations, files, or notes; A is unchanged", async () => {
-	if (PERSON_B === undefined) throw new Error("no second identity: set CF_ACCESS_CLIENT_ID_B and CF_ACCESS_CLIENT_SECRET_B");
+	if (PERSON_B === undefined) throw new Error("no second identity: set SKIN_SESSION_B to a second signed-in session cookie");
 
 	const before = await state();
 

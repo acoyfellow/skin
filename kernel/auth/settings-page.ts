@@ -1,18 +1,23 @@
 import { Option } from "effect";
-import type { ModelOption } from "./catalog";
+import { type AccountOption, DIRECT_ROUTE, GATEWAY_ROUTE_PREFIX, type GatewayOption, type ModelOption, type RouteChoice } from "./route";
 
 const escapeHtml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
 export type SettingsView = {
-	readonly gateway: string | null;
+	readonly accounts: ReadonlyArray<AccountOption>;
+	readonly gateways: ReadonlyArray<GatewayOption>;
 	readonly models: ReadonlyArray<ModelOption>;
-	readonly chosen: string;
+	readonly chosen: RouteChoice;
 	readonly saved: boolean;
 	readonly error: Option.Option<string>;
 	readonly firstTime: boolean;
 };
 
 const selected = (yes: boolean) => (yes ? " selected" : "");
+
+const checked = (yes: boolean) => (yes ? " checked" : "");
+
+const accountOption = (account: AccountOption, chosen: string) => `<option value="${escapeHtml(account.id)}"${selected(account.id === chosen)}>${escapeHtml(account.name)}</option>`;
 
 const modelGroups = (models: ReadonlyArray<ModelOption>, chosen: string) =>
 	[...new Set(models.map((model) => model.group))]
@@ -24,15 +29,24 @@ const modelGroups = (models: ReadonlyArray<ModelOption>, chosen: string) =>
 		)
 		.join("");
 
-const routeLine = (gateway: string | null) =>
-	gateway === null
-		? "Models run on Workers AI in the Cloudflare account that hosts this skin."
-		: `Models run through the AI Gateway <code>${escapeHtml(gateway)}</code> in the Cloudflare account that hosts this skin.`;
+const option = (value: string, chosen: string, title: string, detail: string) =>
+	`<label class="option"><input type="radio" name="route" value="${escapeHtml(value)}"${checked(chosen === value)} onchange="this.form.requestSubmit(document.getElementById('refresh'))"><span class="text"><span class="title">${title}</span><span class="detail">${detail}</span></span></label>`;
+
+const disabledOption = (title: string, detail: string) =>
+	`<div class="option disabled" aria-disabled="true"><input type="radio" disabled><span class="text"><span class="title">${title}</span><span class="detail">${detail}</span></span></div>`;
+
+const gatewayOption = (gateway: GatewayOption, chosen: string) => {
+	const title = `AI Gateway <code>${escapeHtml(gateway.id)}</code>`;
+
+	return gateway.authenticated
+		? option(`${GATEWAY_ROUTE_PREFIX}${gateway.id}`, chosen, title, "Claude, GPT, and Workers AI models, with this gateway's logs and limits.")
+		: disabledOption(title, "Authentication is off. Turn it on in the dashboard to use this gateway.");
+};
 
 const notice = (view: SettingsView) =>
 	Option.match(view.error, {
 		onSome: (message) => `<p class="notice error" role="alert"><span aria-hidden="true">!</span> ${escapeHtml(message)}</p>`,
-		onNone: () => (view.saved ? `<p class="notice saved" role="status"><span aria-hidden="true">✓</span> Saved. Your next message uses this model.</p>` : ""),
+		onNone: () => (view.saved ? `<p class="notice saved" role="status"><span aria-hidden="true">✓</span> Saved. Your next message uses this route and model.</p>` : ""),
 	});
 
 const STYLE = `
@@ -87,17 +101,31 @@ export const settingsPage = (view: SettingsView) => `<!doctype html>
 <body>
 <main>
 <a class="brand" href="/"><img src="/_kernel/icon.png" alt="" width="24" height="24">skin</a>
-<h1>${view.firstTime ? "Pick your model" : "Model settings"}</h1>
-<p class="lede">Pick the model your agent uses. Change it any time.</p>
+<h1>${view.firstTime ? "Pick where your agent runs" : "Model settings"}</h1>
+<p class="lede">Model calls run on the Cloudflare account you pick, under its limits and its logs. Change this any time.</p>
 ${notice(view)}
 <form method="post" action="/settings">
 <fieldset>
+<legend>Account</legend>
+<select name="account" aria-label="Account" onchange="this.form.requestSubmit(document.getElementById('refresh'))">${view.accounts.map((account) => accountOption(account, view.chosen.accountId)).join("")}</select>
+<p class="hint">Only accounts you allowed on Cloudflare's consent screen appear here.</p>
+</fieldset>
+<fieldset>
+<legend>Route</legend>
+<div class="options">
+${option(DIRECT_ROUTE, view.chosen.route, "Workers AI, direct", "Open models on Workers AI, billed to this account.")}
+${view.gateways.map((gateway) => gatewayOption(gateway, view.chosen.route)).join("\n")}
+</div>
+${view.gateways.length === 0 ? '<p class="hint">This account has no AI Gateways. Create one with authentication on to use Claude and GPT models.</p>' : ""}
+</fieldset>
+<fieldset>
 <legend>Model</legend>
-<select name="model" id="model" aria-label="Model">${modelGroups(view.models, view.chosen)}</select>
-<p class="hint">${routeLine(view.gateway)}</p>
+<select name="model" id="model" aria-label="Model">${modelGroups(view.models, view.chosen.model)}</select>
+${view.chosen.route === DIRECT_ROUTE ? '<p class="hint">Claude and GPT models need an AI Gateway route.</p>' : ""}
 </fieldset>
 <div class="actions">
-<button class="primary" type="submit">Save</button>
+<button class="primary" type="submit" name="intent" value="save">Save</button>
+<button type="submit" name="intent" value="refresh" id="refresh" hidden>Refresh</button>
 <a class="button" href="/">Back to my app</a>
 </div>
 </form>

@@ -21,15 +21,14 @@ import {
 	ShipReportJson,
 	SnapshotJson,
 } from "../shared/protocol";
-import { accessConfig, accessToken, verifyAccessToken } from "./access";
 import { Agent, type AgentEnv } from "./agent";
 import { Body } from "./body";
 import { Builder } from "./builder";
 import { kernelAsset, publicAsset } from "./shell";
 import { agentName, devSubject, type Person, type UserId, userIdOf } from "./identity";
 import { BodyStore } from "./store";
-import { type CloudflareAuthEnv, cloudflareAuth, inferenceOf, SETTINGS_PATH } from "./auth/cloudflare";
-import { checkInference } from "./inference-check";
+import { type CloudflareAuthEnv, cloudflareAuth, SETTINGS_PATH } from "./auth/cloudflare";
+import { checkRoute } from "./auth/route-check";
 import { Directory } from "./auth/directory";
 
 export { Agent, Body, Builder, BodyStore, Directory };
@@ -37,10 +36,7 @@ export { Agent, Body, Builder, BodyStore, Directory };
 type Env = AgentEnv &
 	CloudflareAuthEnv & {
 	readonly AGENT: DurableObjectNamespace<Agent>;
-	readonly ACCESS_TEAM_DOMAIN?: string;
-	readonly ACCESS_AUD?: string;
 	readonly LOCAL_DEV_WITHOUT_ACCESS?: string;
-	readonly SKIN_AUTH?: string;
 	readonly CF_VERSION_METADATA?: WorkerVersionMetadata;
 };
 
@@ -226,8 +222,6 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 const isLocalDev = (request: Request, env: Env): boolean => env.LOCAL_DEV_WITHOUT_ACCESS === "1" && LOCAL_HOSTS.has(new URL(request.url).hostname);
 
-const NOT_CONFIGURED = "skin is locked: set ACCESS_TEAM_DOMAIN and ACCESS_AUD and put the hostname behind Cloudflare Access. See README, Deploy.";
-
 type Admission = { readonly _tag: "Admitted"; readonly person: Person } | { readonly _tag: "Refused"; readonly response: Response };
 
 const admitted = (subject: string, email: Option.Option<string>): Effect.Effect<Admission> =>
@@ -243,26 +237,8 @@ const admitWithCloudflare = async (request: Request, env: Env): Promise<Admissio
 	return Effect.runPromise(admitted(result.owner, Option.fromNullishOr(result.email)));
 };
 
-const admit = (request: Request, env: Env): Promise<Admission> => {
-	if (isLocalDev(request, env)) return Effect.runPromise(admitted(devSubject(request), Option.none()));
-
-	if (env.SKIN_AUTH === "cloudflare") return admitWithCloudflare(request, env);
-
-	return Option.match(accessConfig(env.ACCESS_TEAM_DOMAIN, env.ACCESS_AUD), {
-		onNone: () => Effect.runPromise(refused(refuse(503, NOT_CONFIGURED))),
-		onSome: (config) =>
-			Option.match(accessToken(request), {
-				onNone: () => Effect.runPromise(refused(refuse(401, "sign in through Cloudflare Access"))),
-				onSome: (token) =>
-					Effect.runPromise(
-						verifyAccessToken(config, token).pipe(
-							Effect.flatMap(({ subject, email }) => admitted(subject, email)),
-							Effect.catchTag("AccessDenied", ({ reason }) => refused(refuse(403, `Access token rejected: ${reason}`))),
-						),
-					),
-			}),
-	});
-};
+const admit = (request: Request, env: Env): Promise<Admission> =>
+	isLocalDev(request, env) ? Effect.runPromise(admitted(devSubject(request), Option.none())) : admitWithCloudflare(request, env);
 
 const whoAmI = (person: Person, env: Env) => Response.json({ user: person.user, email: Option.getOrNull(person.email), version: env.CF_VERSION_METADATA?.id ?? "unknown" });
 
@@ -276,10 +252,10 @@ export default {
 
 		if (admission._tag === "Refused") return admission.response;
 
-		if (env.SKIN_AUTH === "cloudflare" && new URL(request.url).pathname === `${KERNEL_PREFIX}/api/inference-check` && request.method === "POST" && isSameOrigin(request))
-			return Response.json(await checkInference(env, admission.person.subject));
+		if (new URL(request.url).pathname === `${KERNEL_PREFIX}/api/route-check` && request.method === "POST" && isSameOrigin(request))
+			return Response.json(await checkRoute(env, admission.person.subject));
 
-		if (env.SKIN_AUTH === "cloudflare" && new URL(request.url).pathname === SETTINGS_PATH) return cloudflareAuth(env).settings(request, inferenceOf(env));
+		if (new URL(request.url).pathname === SETTINGS_PATH) return cloudflareAuth(env).settings(request, env.MODEL);
 
 		const { user } = admission.person;
 

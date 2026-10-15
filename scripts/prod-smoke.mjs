@@ -21,7 +21,7 @@ const page = await context.newPage();
 
 await page.goto(`${BASE}/settings`);
 
-const MODELS = (process.env.SMOKE_MODELS ?? "claude-opus-5-5,@cf/zai-org/glm-5.3-flash").split(",").filter((model) => model !== "");
+const MODELS = (process.env.SMOKE_MODELS ?? "").split(",").filter((model) => model !== "");
 
 const FRESH_BUILD_FLOOR_MS = 2000;
 
@@ -48,15 +48,19 @@ const step = async (name, run) => {
 const saveModel = (model) =>
 	evaluate(
 		[
+			"const page=await (await fetch('/settings')).text();",
+			"const doc=new DOMParser().parseFromString(page,'text/html');",
 			"const f=new FormData();",
-			`f.set('model',${JSON.stringify(model)});`,
+			"f.set('account',doc.querySelector('select[name=account]').value);",
+			"f.set('route',doc.querySelector('input[name=route]:checked').value);",
+			`f.set('model',${JSON.stringify(model)});f.set('intent','save');`,
 			"const t=await (await fetch('/settings',{method:'POST',body:f})).text();",
-			"if(!t.includes('notice saved'))throw new Error('this deploy does not offer that model');",
+			"if(!t.includes('notice saved'))throw new Error('settings refused that model on the saved route');",
 			"return 'saved';",
 		].join(""),
 	);
 
-const inferenceCheck = () => evaluate("return await (await fetch('/_kernel/api/inference-check',{method:'POST'})).json()");
+const routeCheck = () => evaluate("return await (await fetch('/_kernel/api/route-check',{method:'POST'})).json()");
 
 const chat = async (text) => {
 	await page.goto(`${BASE}/`);
@@ -112,14 +116,34 @@ await step("a fresh build goes live", async () => {
 	return `generation ${report.generation} live, bundled in ${bundle.ms} ms, marker served`;
 });
 
+await step("an anonymous caller is refused", async () => {
+	const api = await fetch(`${BASE}/_kernel/api/body`, { headers: { accept: "application/json" } });
+	const rpc = await fetch(`${BASE}/_kernel/api/route-check`, { method: "POST", headers: { accept: "application/json", origin: BASE } });
+
+	if (api.status !== 401 || rpc.status !== 401) throw new Error(`anonymous requests answered ${api.status} and ${rpc.status}, not 401`);
+
+	return "401 on the API and on the model check";
+});
+
+const replyOnSavedRoute = async () => {
+	const check = await routeCheck();
+
+	if (!check.sentUserToken) throw new Error("the model call did not carry the signed-in person's token");
+
+	if (!check.ok) throw new Error(`${check.route} on their account answered ${check.status}: ${check.problem}`);
+
+	return `${check.model} via ${check.route} on ${check.host} (their account), ${await chat("Reply with exactly the word: pong")}`;
+};
+
+if (MODELS.length === 0) {
+	await step("chat replies on the person's saved account, route and model", replyOnSavedRoute);
+}
+
 for (const model of MODELS) {
-	await step(`chat replies with ${model}`, async () => {
+	await step(`chat replies with ${model} on the person's saved account and route`, async () => {
 		await saveModel(model);
-		const check = await inferenceCheck();
 
-		if (!check.ok) throw new Error(`${check.route}: ${check.problem ?? check.status}`);
-
-		return `${check.route}; ${await chat("Reply with exactly the word: pong")}`;
+		return replyOnSavedRoute();
 	});
 }
 

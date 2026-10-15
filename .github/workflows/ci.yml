@@ -62,8 +62,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SKIN_HOST: ${{ vars.SKIN_HOST }}
-          ACCESS_TEAM_DOMAIN: ${{ vars.ACCESS_TEAM_DOMAIN }}
-          ACCESS_AUD: ${{ vars.ACCESS_AUD }}
+          OAUTH_CLIENT_ID: ${{ vars.OAUTH_CLIENT_ID }}
+          SKIN_ZONE: ${{ vars.SKIN_ZONE }}
+          SMOKE_SESSION: ${{ secrets.SKIN_SESSION }}
         run: |
           set -o pipefail
           npm run deploy 2>&1 | tee deploy.log
@@ -71,20 +72,16 @@ jobs:
           test -n "$version"
           echo "DEPLOYED_VERSION=$version" >> "$GITHUB_ENV"
           echo "deployed version $version"
-      - name: Anonymous requests are sent to the Access login
+      - name: Anonymous API requests are refused
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ vars.SKIN_HOST }}/")
-          location=$(curl -s -o /dev/null -w '%{redirect_url}' "https://${{ vars.SKIN_HOST }}/")
-          echo "anonymous: $code -> ${location%%\?*}"
-          test "$code" = "302"
-          case "$location" in *cloudflareaccess.com*) ;; *) exit 1 ;; esac
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'accept: application/json' "https://${{ vars.SKIN_HOST }}/_kernel/api/body")
+          echo "anonymous: $code"
+          test "$code" = "401"
       - name: End to end against the deployed Worker, as two people
         env:
           BASE: https://${{ vars.SKIN_HOST }}
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          CF_ACCESS_CLIENT_ID_B: ${{ secrets.CF_ACCESS_CLIENT_ID_B }}
-          CF_ACCESS_CLIENT_SECRET_B: ${{ secrets.CF_ACCESS_CLIENT_SECRET_B }}
+          SKIN_SESSION: ${{ secrets.SKIN_SESSION }}
+          SKIN_SESSION_B: ${{ secrets.SKIN_SESSION_B }}
           EXPECT_VERSION: ${{ env.DEPLOYED_VERSION }}
         run: node scripts/e2e.mjs
       - if: always()

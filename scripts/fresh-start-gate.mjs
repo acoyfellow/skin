@@ -2,7 +2,7 @@ import { chromium, webkit } from "playwright";
 
 const BASE = process.env.BASE ?? "http://localhost:8790";
 
-const headers = { "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID ?? "", "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET ?? "" };
+const headers = process.env.SKIN_SESSION === undefined ? {} : { cookie: `__Host-skin_session=${process.env.SKIN_SESSION}` };
 
 const engines = (process.env.ENGINES ?? "chromium,webkit").split(",");
 
