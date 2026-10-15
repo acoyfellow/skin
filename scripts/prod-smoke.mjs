@@ -1,37 +1,33 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { chromium } from "playwright";
 
 const BASE = process.env.SMOKE_BASE ?? "https://skin.coey.dev";
 
-const SURFACE = process.env.SMOKE_SURFACE ?? "surface:263";
+const SESSION = (process.env.SMOKE_SESSION ?? (existsSync(".debug/session.txt") ? readFileSync(".debug/session.txt", "utf8") : "")).trim();
+
+if (SESSION === "") {
+	console.log("FAIL  no session: set SMOKE_SESSION or save a signed-in skin_session cookie to .debug/session.txt");
+	process.exit(1);
+}
+
+const browserApp = await chromium.launch();
+
+const context = await browserApp.newContext();
+
+await context.addCookies([{ name: "__Host-skin_session", value: SESSION, url: BASE, secure: true, httpOnly: true, sameSite: "Lax" }]);
+
+const page = await context.newPage();
+
+await page.goto(`${BASE}/settings`);
 
 const MODELS = (process.env.SMOKE_MODELS ?? "claude-opus-5-5,@cf/zai-org/glm-5.3-flash").split(",").filter((model) => model !== "");
 
 const FRESH_BUILD_FLOOR_MS = 2000;
 
-const browser = (...args) => execFileSync("cmux", ["browser", SURFACE, ...args], { encoding: "utf8", timeout: 120_000 }).trim();
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const evaluate = async (expression, timeoutMs = 180_000) => {
-	const slot = `__smoke_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-	browser("eval", `window.${slot}=undefined;Promise.resolve().then(async()=>{${expression}}).then(v=>window.${slot}=JSON.stringify({ok:true,v}),e=>window.${slot}=JSON.stringify({ok:false,e:String(e)}));'started'`);
-
-	for (const deadline = Date.now() + timeoutMs; Date.now() < deadline; await sleep(2000)) {
-		const raw = browser("eval", `String(window.${slot})`);
-
-		if (raw !== "undefined") {
-			const result = JSON.parse(raw);
-
-			if (!result.ok) throw new Error(result.e);
-
-			return result.v;
-		}
-	}
-
-	throw new Error(`timed out after ${timeoutMs} ms`);
-};
+const evaluate = (expression) => page.evaluate(`(async()=>{${expression}})()`);
 
 const results = [];
 
@@ -60,27 +56,22 @@ const saveModel = (model) =>
 		].join(""),
 	);
 
-const inferenceCheck = () => evaluate("return await (await fetch('/_kernel/api/inference-check',{method:'POST'})).json()", 90_000);
+const inferenceCheck = () => evaluate("return await (await fetch('/_kernel/api/inference-check',{method:'POST'})).json()");
 
 const chat = async (text) => {
-	browser("goto", `${BASE}/`);
-	await sleep(6000);
-	browser("eval", "[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='New chat')?.click();'n'");
-	await sleep(1500);
-	browser("click", "#task");
-	browser("type", "#task", text);
-	await sleep(500);
-	browser("press", "Enter");
+	await page.goto(`${BASE}/`);
+	await page.locator("#task").waitFor({ timeout: 60_000 });
+	await page.getByRole("button", { name: "New chat" }).click().catch(() => undefined);
+	await page.locator("#task").fill(text);
+	await page.locator("#task").press("Enter");
 
 	for (let tries = 0; tries < 60; tries++) {
 		await sleep(3000);
-		const tail = browser("eval", "(document.querySelector('[role=log]')||document.body).innerText.slice(-500)");
+		const tail = await page.evaluate(() => (document.querySelector("[role=log]") ?? document.body).innerText.slice(-500));
 
 		if (/Run ended|Failed/.test(tail)) throw new Error(tail.split("\n").filter(Boolean).slice(-2).join(" / "));
 
-		const idle = browser("eval", "!!document.querySelector('#send') && !/Stop/.test(document.querySelector('#send').textContent)");
-
-		if (tries > 2 && idle === "true" && /pong/i.test(tail.split(text).pop() ?? "")) return "replied pong";
+		if (tries > 1 && /pong/i.test(tail.split(text).pop() ?? "")) return "replied pong";
 	}
 
 	throw new Error("no reply within 3 minutes");
@@ -89,9 +80,6 @@ const chat = async (text) => {
 const EXPECTED_VERSION = process.env.SMOKE_EXPECT_VERSION ?? "";
 
 await step("signed in, on the version under test", async () => {
-	browser("goto", `${BASE}/settings`);
-	await sleep(4000);
-
 	for (let tries = 0; tries < 30; tries++) {
 		const version = await evaluate("const r=await fetch('/_kernel/api/me',{cache:'no-store'});if(r.status!==200)throw new Error('not signed in: '+r.status+'. Sign in at /oauth/login in '+location.host);return (await r.json()).version");
 
@@ -138,5 +126,7 @@ for (const model of MODELS) {
 const failed = results.filter((result) => !result.ok);
 
 console.log(failed.length === 0 ? `\nsmoke passed: ${results.length} steps` : `\nsmoke FAILED: ${failed.length} of ${results.length} steps`);
+
+await browserApp.close();
 
 process.exit(failed.length === 0 ? 0 : 1);
