@@ -1,0 +1,19 @@
+scripts/prod-smoke.mjs
+  s_1edf569f022c1c::t_649570d1f888a0 2-3,7,9-12,14,16,18,20,22,24,26,28,30,59,62-66,70,74,130-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6c98d06fa0dcc8ac49036165bd33954145b3bc6b",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
