@@ -374,10 +374,11 @@ export const cloudflareAuth = (
     const savedRoute = routeValue({ kind: fresh.grant.routeKind, gateway: fresh.grant.gateway });
     const requestedRoute = field("route", savedRoute);
     const routeOnAccount = requestedRoute === DIRECT_ROUTE || gateways.some((gateway) => gateway.authenticated && routeValue({ kind: "gateway", gateway: gateway.id }) === requestedRoute);
-    const routeChoice = routeOnAccount ? requestedRoute : DIRECT_ROUTE;
+    const routeChoice = routeOnAccount || !refreshing ? requestedRoute : DIRECT_ROUTE;
     const models = modelOptionsFor(kindOfRoute(routeChoice));
     const requestedModel = field("model", modelOrDefault(fresh.grant.model, fallbackModel));
-    const chosen: RouteChoice = { accountId, route: routeChoice, model: models.some((model) => model.id === requestedModel) ? requestedModel : (models[0]?.id ?? fallbackModel) };
+    const modelFits = models.some((model) => model.id === requestedModel);
+    const chosen: RouteChoice = { accountId, route: routeChoice, model: modelFits || !refreshing ? requestedModel : (models[0]?.id ?? fallbackModel) };
 
     const view = (saved: boolean, error: Option.Option<string>, status = 200) =>
       html(settingsPage({ accounts, gateways, models, chosen, saved, error, firstTime: fresh.grant.model === null }), status);

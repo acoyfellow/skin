@@ -171,3 +171,11 @@ describe("sending a model call", () => {
 		expect(seen.map((each) => each.url)).toEqual(["https://api.cloudflare.com/client/v4/accounts/acct-a/ai/v1/chat/completions", "https://gateway.ai.cloudflare.com/v1/acct-b/jordan/compat/chat/completions"]);
 	});
 });
+
+describe("saving never silently changes the choice", () => {
+	it("refuses a gateway that is missing from the selected account instead of falling back to Workers AI", () => {
+		const chosen = validateChoice({ accountId: "acct-a", route: "gateway:jordan", model: OPUS }, accounts, [{ id: "my-ax", authenticated: true }], modelOptionsFor);
+
+		expect(Result.isFailure(chosen) && chosen.failure.field).toBe("route");
+	});
+});

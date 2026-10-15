@@ -126,11 +126,13 @@ export const GUARD = `(() => {
 })();
 `;
 
-export const SERVICE_WORKER = `const CACHE = "skin-shell-v1";
+export const SERVICE_WORKER = `const CACHE = "skin-shell-v2";
+
+const PASS_THROUGH = ["/oauth/", "/settings", "${KERNEL_PREFIX}/api/"];
 
 self.addEventListener("install", () => self.skipWaiting());
 
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
 
 const cacheable = (request, url) => request.mode === "navigate" || url.searchParams.has("g") || url.pathname === "/styles.css" || url.pathname.startsWith("${KERNEL_PREFIX}/icon");
 
@@ -138,7 +140,7 @@ self.addEventListener("fetch", (event) => {
 	const request = event.request;
 	const url = new URL(request.url);
 
-	if (request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("${KERNEL_PREFIX}/api/")) return;
+	if (request.method !== "GET" || url.origin !== self.location.origin || PASS_THROUGH.some((prefix) => url.pathname.startsWith(prefix))) return;
 
 	event.respondWith(
 		fetch(request)

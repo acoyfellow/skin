@@ -111,40 +111,63 @@ const rememberDependencies = (fs: InMemoryFileSystem, manifest: string) => {
 	installed = { key: manifest, files: fs.list(NODE_MODULES).map((path) => [path, fs.read(path) ?? ""] as const) };
 };
 
-export const build = (files: ReadonlyMap<string, string>, generation: number): Effect.Effect<Built, BuildFailed> =>
+export type BuildPart = "server" | "client";
+
+export const BUILD_PARTS: ReadonlyArray<BuildPart> = ["server", "client"];
+
+const STUB_SERVER = 'export default { fetch: () => new Response(null, { status: 404 }) };';
+
+const STUB_CLIENT = "export {};";
+
+export type PartOutput = { readonly part: BuildPart; readonly mainModule: string; readonly modules: Readonly<Record<string, string>>; readonly client: string; readonly warnings: ReadonlyArray<string> };
+
+export const buildPart = (files: ReadonlyMap<string, string>, part: BuildPart): Effect.Effect<PartOutput, BuildFailed> =>
 	Effect.gen(function* () {
-		const started = Date.now();
-		const html = yield* required(files, HTML_ENTRY);
-		const css = yield* required(files, STYLES_ENTRY);
+		yield* required(files, part === "server" ? SERVER_ENTRY : CLIENT_ENTRY);
 
-		yield* required(files, SERVER_ENTRY);
-		yield* required(files, CLIENT_ENTRY);
-
-		const fs = new InMemoryFileSystem(Object.fromEntries(files));
+		const stubbed = { ...Object.fromEntries(files), ...(part === "server" ? { [CLIENT_ENTRY]: STUB_CLIENT } : { [SERVER_ENTRY]: STUB_SERVER }) };
+		const fs = new InMemoryFileSystem(stubbed);
 		const manifest = files.get("package.json") ?? "";
 
 		withCachedDependencies(fs, manifest);
 
 		const app = yield* Effect.tryPromise({
 			try: () => createApp({ files: fs, server: SERVER_ENTRY, client: CLIENT_ENTRY, minify: true, target: "es2022" }),
-			catch: (cause) => new BuildFailed({ stage: "bundle", detail: firstLines(cause instanceof Error ? cause.message : String(cause), 40) }),
+			catch: (cause) => new BuildFailed({ stage: `bundle ${part}`, detail: firstLines(cause instanceof Error ? cause.message : String(cause), 40) }),
 		});
 
 		rememberDependencies(fs, manifest);
 
 		const client = app.assets[CLIENT_OUTPUT];
 
-		if (!Predicate.isString(client)) return yield* Effect.fail(new BuildFailed({ stage: "bundle", detail: `${CLIENT_ENTRY} produced no ${CLIENT_OUTPUT}` }));
+		if (part === "client" && !Predicate.isString(client)) return yield* Effect.fail(new BuildFailed({ stage: "bundle client", detail: `${CLIENT_ENTRY} produced no ${CLIENT_OUTPUT}` }));
 
+		const modules = part === "server" ? yield* stringModules(app.modules) : {};
+
+		return { part, mainModule: app.mainModule, modules, client: Predicate.isString(client) ? client : "", warnings: app.warnings ?? [] };
+	});
+
+export const assemble = (files: ReadonlyMap<string, string>, server: PartOutput, client: PartOutput, generation: number, started: number): Effect.Effect<Built, BuildFailed> =>
+	Effect.gen(function* () {
+		const html = yield* required(files, HTML_ENTRY);
+		const css = yield* required(files, STYLES_ENTRY);
 		const sources = [...files].flatMap(([path, content]) => (SOURCE_FILE.test(path) && !path.startsWith(NODE_MODULES) ? [content] : []));
 		const styles = yield* stylesheet(css, sources);
-		const modules = yield* stringModules(app.modules);
 
 		return {
-			mainModule: app.mainModule,
-			modules,
-			assets: { ...publicAssets(files), [CLIENT_OUTPUT]: client, [STYLES_OUTPUT]: styles, "/index.html": pageFor(html, generation) },
-			warnings: app.warnings ?? [],
+			mainModule: server.mainModule,
+			modules: server.modules,
+			assets: { ...publicAssets(files), [CLIENT_OUTPUT]: client.client, [STYLES_OUTPUT]: styles, "/index.html": pageFor(html, generation) },
+			warnings: [...server.warnings, ...client.warnings],
 			ms: Date.now() - started,
 		};
+	});
+
+export const build = (files: ReadonlyMap<string, string>, generation: number): Effect.Effect<Built, BuildFailed> =>
+	Effect.gen(function* () {
+		const started = Date.now();
+		const server = yield* buildPart(files, "server");
+		const client = yield* buildPart(files, "client");
+
+		return yield* assemble(files, server, client, generation, started);
 	});

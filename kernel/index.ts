@@ -29,6 +29,7 @@ import { kernelAsset, publicAsset } from "./shell";
 import { agentName, devSubject, type Person, type UserId, userIdOf } from "./identity";
 import { BodyStore } from "./store";
 import { type CloudflareAuthEnv, cloudflareAuth, SETTINGS_PATH } from "./auth/cloudflare";
+import { checkRoute } from "./auth/route-check";
 import { Directory } from "./auth/directory";
 
 export { Agent, Body, Builder, BodyStore, Directory };
@@ -274,6 +275,9 @@ export default {
 		const admission = await admit(request, env);
 
 		if (admission._tag === "Refused") return admission.response;
+
+		if (env.SKIN_AUTH === "cloudflare" && new URL(request.url).pathname === `${KERNEL_PREFIX}/api/route-check` && request.method === "POST" && isSameOrigin(request))
+			return Response.json(await checkRoute(env, admission.person.subject));
 
 		if (env.SKIN_AUTH === "cloudflare" && new URL(request.url).pathname === SETTINGS_PATH) return cloudflareAuth(env).settings(request, env.MODEL);
 

@@ -33,8 +33,10 @@ const urlOf = (input: RequestInfo | URL): string => (input instanceof Request ? 
 
 const BINDING_BEARER = `Bearer ${ANSWERED_BY_BINDING}`;
 
-const isForBinding = (input: RequestInfo | URL, init: RequestInit | undefined): boolean =>
-	CHAT_COMPLETIONS.test(urlOf(input)) && new Request(input, init).headers.get("authorization") === BINDING_BEARER;
+const authorizationOf = (input: RequestInfo | URL, init: RequestInit | undefined): string | null =>
+	init?.headers === undefined ? (input instanceof Request ? input.headers.get("authorization") : null) : new Headers(init.headers).get("authorization");
+
+export const isForBinding = (input: RequestInfo | URL, init: RequestInit | undefined): boolean => CHAT_COMPLETIONS.test(urlOf(input)) && authorizationOf(input, init) === BINDING_BEARER;
 
 
 let bridge: Option.Option<{ run: AiRun }> = Option.none();

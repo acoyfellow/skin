@@ -26,7 +26,7 @@ const PROMPT = [
 
 export class HarnessFailed extends Schema.TaggedError<HarnessFailed>()("HarnessFailed", { step: Schema.String, reason: Schema.String }) {}
 
-export class RunEnded extends Schema.TaggedError<RunEnded>()("RunEnded", { status: Schema.String }) {}
+export class RunEnded extends Schema.TaggedError<RunEnded>()("RunEnded", { status: Schema.String, detail: Schema.String }) {}
 
 const pi = <A>(step: string, run: () => Promise<A>) => Effect.tryPromise({ try: run, catch: (cause) => new HarnessFailed({ step, reason: String(cause) }) });
 
@@ -176,7 +176,7 @@ export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {
 				const run = (requestId: string, input: string) =>
 					useCurrentModel.pipe(Effect.andThen(pi("submit", () => conversation.submit({ type: "input", content: input, requestId }, CONTEXT)).pipe(
 						Effect.flatMap((submission) => pi("wait", () => submission.wait(CONTEXT))),
-						Effect.flatMap((settled) => (settled.status === "done" ? Effect.void : Effect.fail(new RunEnded({ status: settled.status })))),
+						Effect.flatMap((settled) => (settled.status === "done" ? Effect.void : Effect.fail(new RunEnded({ status: settled.status, detail: [settled.reason, settled.detail].filter((part) => part !== undefined && part !== "").join(": ") })))),
 					)));
 
 				harness.resume();

@@ -124,7 +124,7 @@ export class ConversationAgent extends Context.Service<ConversationAgent, Conver
 						yield* pi.run(id, text);
 					}).pipe(
 						Effect.catchTags({
-							RunEnded: ({ status }) => fail(`Run ended: ${status}`),
+							RunEnded: ({ status, detail }) => fail(detail === "" ? `Run ended: ${status}` : `Run ended: ${status} (${detail})`),
 							HarnessFailed: ({ step, reason }) => fail(`${step}: ${reason}`),
 							StorageFailed: ({ step, reason }) => fail(`Storage ${step} failed: ${reason}`),
 						}),

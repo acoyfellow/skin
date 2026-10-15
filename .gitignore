@@ -8,3 +8,4 @@ wrangler.deploy.jsonc
 deploy.local
 deploy.coey.secrets
 .settings-shot.png
+.debug/

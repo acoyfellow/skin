@@ -20,8 +20,8 @@ import {
 	type ShipReport,
 	ShipReportJson,
 } from "../shared/protocol";
-import type { Built } from "./build";
-import { BuildOutcomeJson, type Builder } from "./builder";
+import { assemble, BuildFailed, type BuildPart, type Built, type PartOutput } from "./build";
+import { type Builder, PartOutcomeJson } from "./builder";
 import { cleanPath, InvalidPath } from "./paths";
 import { KERNEL_FILES, SEED } from "./seed";
 
@@ -100,7 +100,7 @@ const encodeBuilt = Schema.encodeSync(BuiltJson);
 
 const decodeBodyChecks = Schema.decodeUnknownEffect(BodyChecksJson);
 
-const decodeOutcome = Schema.decodeUnknownEffect(BuildOutcomeJson);
+const decodePartOutcome = Schema.decodeUnknownEffect(PartOutcomeJson);
 
 type Row = Record<string, SqlStorageValue>;
 
@@ -511,12 +511,23 @@ export class Body extends DurableObject<BodyEnv> {
 		});
 	}
 
-	private callBuilder(files: ReadonlyMap<string, string>, id: number) {
-		const builder = this.env.BUILDER.getByName(`${this.owner()}-build-${id}`);
+	private callPart(filesJson: string, id: number, part: BuildPart): Effect.Effect<PartOutput, BuildFailed> {
+		const builder = this.env.BUILDER.getByName(`${this.owner()}-build-${id}-${part}-${Date.now()}`);
 
-		return Effect.tryPromise({ try: () => builder.build(JSON.stringify(Object.fromEntries(files)), id), catch: (cause) => String(cause) }).pipe(
-			Effect.flatMap((json) => decodeOutcome(json).pipe(Effect.mapError((error) => error.message))),
-			Effect.catch((detail) => Effect.succeed({ _tag: "Failed" as const, stage: "build", detail: `${BUILDER_CRASHED}${detail}` })),
+		return Effect.tryPromise({ try: () => builder.buildPart(filesJson, part), catch: (cause) => new BuildFailed({ stage: `bundle ${part}`, detail: `${BUILDER_CRASHED}${String(cause)}` }) }).pipe(
+			Effect.flatMap((json) => decodePartOutcome(json).pipe(Effect.mapError((error) => new BuildFailed({ stage: `bundle ${part}`, detail: `${BUILDER_CRASHED}${error.message}` })))),
+			Effect.flatMap((outcome) => (outcome._tag === "Built" ? Effect.succeed(outcome.output) : Effect.fail(new BuildFailed({ stage: outcome.stage, detail: outcome.detail })))),
+		);
+	}
+
+	private callBuilder(files: ReadonlyMap<string, string>, id: number) {
+		const started = Date.now();
+		const filesJson = JSON.stringify(Object.fromEntries(files));
+
+		return Effect.all([this.callPart(filesJson, id, "server"), this.callPart(filesJson, id, "client")], { concurrency: 2 }).pipe(
+			Effect.flatMap(([server, client]) => assemble(files, server, client, id, started)),
+			Effect.map((built) => ({ _tag: "Built" as const, built })),
+			Effect.catchTag("BuildFailed", ({ stage, detail }) => Effect.succeed({ _tag: "Failed" as const, stage, detail })),
 		);
 	}
 
