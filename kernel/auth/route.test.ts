@@ -179,3 +179,13 @@ describe("saving never silently changes the choice", () => {
 		expect(Result.isFailure(chosen) && chosen.failure.field).toBe("route");
 	});
 });
+
+describe("Anthropic thinking", () => {
+	it("is rewritten to adaptive on the Anthropic messages route only", async () => {
+		const { withRequestModel } = await import("./route");
+		const body = JSON.stringify({ model: "x", thinking: { type: "enabled", budget_tokens: 1024 } });
+
+		expect(JSON.parse(withRequestModel(body, "claude-opus-5-5", "https://gateway.ai.cloudflare.com/v1/a/g/anthropic/v1/messages")).thinking).toEqual({ type: "adaptive" });
+		expect(JSON.parse(withRequestModel(body, "gpt-6.1-sol", "https://gateway.ai.cloudflare.com/v1/a/g/openai/responses")).thinking).toEqual({ type: "enabled", budget_tokens: 1024 });
+	});
+});

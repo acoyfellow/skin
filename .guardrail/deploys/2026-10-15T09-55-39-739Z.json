@@ -1,0 +1,51 @@
+{
+  "schema": "guardrail.deploy-receipt.v0",
+  "timestamp": "2026-10-15T09:55:39.739Z",
+  "command": [
+    "guardrail",
+    "receipt",
+    "./.guardrail-staged.29701.wrangler.jsonc"
+  ],
+  "configPath": "./.guardrail-staged.29701.wrangler.jsonc",
+  "git": {
+    "sha": "6c98d06fa0dcc8ac49036165bd33954145b3bc6b",
+    "dirty": true,
+    "remote": "https://github.com/acoyfellow/skin"
+  },
+  "decision": {
+    "allowed": true,
+    "findings": []
+  },
+  "exposure": {
+    "isPublic": false,
+    "surface": "no public surface",
+    "reason": "",
+    "criticalMessage": "",
+    "routes": [],
+    "workersDev": false
+  },
+  "bindings": [
+    {
+      "type": "durable_object_namespace",
+      "name": "AGENT"
+    },
+    {
+      "type": "durable_object_namespace",
+      "name": "BODY"
+    },
+    {
+      "type": "durable_object_namespace",
+      "name": "BUILDER"
+    },
+    {
+      "type": "durable_object_namespace",
+      "name": "DIRECTORY"
+    }
+  ],
+  "auth": {
+    "detected": false,
+    "partial": false,
+    "patterns": [],
+    "source": "/Users/jcoeyman/cloudflare/skin/kernel/index.ts"
+  }
+}

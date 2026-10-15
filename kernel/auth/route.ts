@@ -67,8 +67,15 @@ export const routedHeaders = (original: Headers, access: RouteAccess): Headers =
 
 const ModelBody = Schema.fromJsonString(Schema.StructWithRest(Schema.Struct({ model: Schema.String }), [Schema.Record(Schema.String, Schema.Json)]));
 
-export const withRequestModel = (body: string, model: string): string =>
-	Option.match(Schema.decodeUnknownOption(ModelBody)(body), { onNone: () => body, onSome: (parsed) => JSON.stringify({ ...parsed, model }) });
+const ADAPTIVE = { type: "adaptive" };
+
+const isAnthropicMessages = (url: string) => /\/anthropic\/v1\/messages(\?|$)/.test(url);
+
+export const withRequestModel = (body: string, model: string, url = ""): string =>
+	Option.match(Schema.decodeUnknownOption(ModelBody)(body), {
+		onNone: () => body,
+		onSome: (parsed) => JSON.stringify(isAnthropicMessages(url) && parsed.thinking !== undefined ? { ...parsed, model, thinking: ADAPTIVE } : { ...parsed, model }),
+	});
 
 export const routedFetch =
 	(access: () => Promise<RouteAccess>, send: typeof fetch): typeof fetch =>
@@ -81,7 +88,7 @@ export const routedFetch =
 			new Request(routedUrl(request.url, current), {
 				method: request.method,
 				headers: routedHeaders(request.headers, current),
-				body: hasBody ? withRequestModel(await request.text(), current.requestModel) : null,
+				body: hasBody ? withRequestModel(await request.text(), current.requestModel, routedUrl(request.url, current)) : null,
 				signal: request.signal,
 			}),
 		);
