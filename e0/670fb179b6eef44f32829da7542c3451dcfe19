@@ -1,0 +1,49 @@
+README.md
+  s_1edf569f022c1c::t_c56d74b34ea1ac 70-80
+deploy/coey.env
+  s_1edf569f022c1c::t_ad3f7ce5c902c6 1-3
+kernel/agent.ts
+  s_1edf569f022c1c::t_7435a9a1c6f1bf 9,14-23,47-52,54,105-111
+kernel/auth/cloudflare.ts
+  s_1edf569f022c1c::t_ecac5aaf5d227e 1-365
+kernel/auth/directory.ts
+  s_1edf569f022c1c::t_3ce1e0b937ab27 1-101
+kernel/auth/oauth.ts
+  s_1edf569f022c1c::t_45c58ac75c6713 1-218
+kernel/auth/session.ts
+  s_1edf569f022c1c::t_c8c7a257df3bc8 1-146
+kernel/auth/sign-in-page.ts
+  s_1edf569f022c1c::t_9c4ed06efd343f 1-94
+kernel/harness.ts
+  s_1edf569f022c1c::t_195221801c3019 9,112-114
+kernel/identity.ts
+  s_1edf569f022c1c::t_84e02a94995d81 8
+kernel/index.ts
+  s_1edf569f022c1c::t_7c39be7b8b0fb8 28,31-32,34,36-37,42,93,97-98,138,141,147,151-153,159,161,233,237-244,248-249,270-273,286
+kernel/model.ts
+  s_1edf569f022c1c::t_b0d274c8a3da4d 34-51,68
+kernel/shell.ts
+  s_1edf569f022c1c::t_9f4fce7b301bff 242-245
+package.json
+  s_1edf569f022c1c::t_424eb2d7f8d7b1 2-47
+scripts/deploy.mjs
+  s_1edf569f022c1c::t_9881065f0fb2d3 14,16,24
+wrangler.jsonc
+  s_1edf569f022c1c::t_629620e23082ea 27-28,31-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e0670fb179b6eef44f32829da7542c3451dcfe19",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+scripts/deploy.mjs
+  s_1edf569f022c1c::t_e99c7d41ea8caa 1,34-62
+scripts/prod-smoke.mjs
+  s_aaa885f9224222::t_15697ec822c8b1 1-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "cebaff3d1b91d0d75f80f82ddbdb6ddc5a983ec9",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    },
+    "s_aaa885f9224222": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a11c8a-37e4-7010-8e5b-55d3cf7c925a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
