@@ -1,6 +1,6 @@
 import { Option, Predicate, Result, Schema } from "effect";
-import { MODEL_OPTIONS, modelOrDefault } from "./catalog";
-import { DIRECT_ROUTE, type RouteChoice, routeValue, validateChoice } from "./route";
+import { modelOptionsFor, modelOrDefault } from "./catalog";
+import { DIRECT_ROUTE, kindOfRoute, type RouteChoice, routeValue, validateChoice } from "./route";
 import { settingsPage } from "./settings-page";
 import { type Directory, DIRECTORY_NAME, type Grant } from "./directory";
 import {
@@ -254,7 +254,8 @@ export const cloudflareAuth = (
       );
 
       const user = await userInfo(tokens.accessToken, send);
-      const [account] = await accountsOf(tokens.accessToken, send);
+      const accounts = await accountsOf(tokens.accessToken, send);
+      const [account] = accounts;
 
       if (account === undefined)
         return page(
@@ -265,6 +266,9 @@ export const cloudflareAuth = (
 
       const owner = `${CLOUDFLARE_OWNER_PREFIX}${user.sub}`;
 
+      const previous = await directory().grantFor(owner);
+      const kept = previous !== null && accounts.some((each) => each.id === previous.accountId) ? previous : null;
+
       const session = {
         owner,
         id: randomToken(),
@@ -274,19 +278,19 @@ export const cloudflareAuth = (
       await directory().saveGrant({
         owner,
         email: user.email,
-        accountId: account.id,
-        accountName: account.name,
+        accountId: kept?.accountId ?? account.id,
+        accountName: kept?.accountName ?? account.name,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt,
         scope: tokens.scope,
-        routeKind: "workers-ai",
-        gateway: null,
-        model: null,
+        routeKind: kept?.routeKind ?? "workers-ai",
+        gateway: kept?.gateway ?? null,
+        model: kept?.model ?? null,
       });
       await directory().openSession(session.id, owner, session.expires);
 
-      return redirect(SETTINGS_PATH, [
+      return redirect(kept?.model === null || kept === null ? SETTINGS_PATH : "/", [
         clearCookie(jar, jar.flow),
         cookie(
           jar,
@@ -366,21 +370,21 @@ export const cloudflareAuth = (
 
     const accountId = field("account", fresh.grant.accountId);
     const gateways = await gatewaysOf(fresh.token, accountId, send);
-    const switching = field("intent", "save") === "switch-account";
+    const refreshing = field("intent", "save") === "refresh";
     const savedRoute = routeValue({ kind: fresh.grant.routeKind, gateway: fresh.grant.gateway });
-
-    const chosen: RouteChoice = {
-      accountId,
-      route: switching && accountId !== fresh.grant.accountId ? DIRECT_ROUTE : field("route", savedRoute),
-      model: field("model", modelOrDefault(fresh.grant.model, fallbackModel)),
-    };
+    const requestedRoute = field("route", savedRoute);
+    const routeOnAccount = requestedRoute === DIRECT_ROUTE || gateways.some((gateway) => gateway.authenticated && routeValue({ kind: "gateway", gateway: gateway.id }) === requestedRoute);
+    const routeChoice = routeOnAccount ? requestedRoute : DIRECT_ROUTE;
+    const models = modelOptionsFor(kindOfRoute(routeChoice));
+    const requestedModel = field("model", modelOrDefault(fresh.grant.model, fallbackModel));
+    const chosen: RouteChoice = { accountId, route: routeChoice, model: models.some((model) => model.id === requestedModel) ? requestedModel : (models[0]?.id ?? fallbackModel) };
 
     const view = (saved: boolean, error: Option.Option<string>, status = 200) =>
-      html(settingsPage({ accounts, gateways, models: MODEL_OPTIONS, chosen, saved, error, firstTime: fresh.grant.model === null }), status);
+      html(settingsPage({ accounts, gateways, models, chosen, saved, error, firstTime: fresh.grant.model === null }), status);
 
-    if (form === null || switching) return view(false, Option.none());
+    if (form === null || refreshing) return view(false, Option.none());
 
-    const validated = validateChoice(chosen, accounts, gateways, MODEL_OPTIONS);
+    const validated = validateChoice(chosen, accounts, gateways, modelOptionsFor);
 
     if (Result.isFailure(validated)) return view(false, Option.some(validated.failure.message), 400);
 

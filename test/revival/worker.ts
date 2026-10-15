@@ -31,7 +31,7 @@ const scripted = () => {
 		),
 	);
 
-	return Layer.succeed(Model, { provider: faux.provider, modelId: faux.models[0].id, options: {} });
+	return Layer.succeed(Model, { provider: faux.provider, modelId: faux.models[0].id, options: {}, current: async () => faux.models[0].id });
 };
 
 export class RevivalAgent extends Agent {

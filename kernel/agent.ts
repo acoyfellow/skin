@@ -7,7 +7,7 @@ import { Repo } from "./files";
 import { ownerOfAgent, UserId } from "./identity";
 import { type HarnessFailed, Model, Pi } from "./harness";
 import { CLOUDFLARE_OWNER_PREFIX, type CloudflareAuthEnv, freshToken } from "./auth/cloudflare";
-import { modelOrDefault, routedWorkersAI } from "./auth/catalog";
+import { modelOrDefault, requestModelFor, routedAccountProvider } from "./auth/catalog";
 import type { RouteAccess } from "./auth/route";
 import { routeWorkersAIThroughBinding } from "./model";
 import { Meta } from "./meta";
@@ -19,11 +19,16 @@ const INFERENCE_OWNER = "inference-owner";
 
 const routeAccess = (env: AgentEnv, owner: string) => async (): Promise<RouteAccess> => {
 	const { grant, token } = await freshToken(env, owner);
+	const model = modelOrDefault(grant.model, env.MODEL);
 
-	return { accountId: grant.accountId, kind: grant.routeKind, gateway: grant.gateway, model: modelOrDefault(grant.model, env.MODEL), token };
+	return { accountId: grant.accountId, kind: grant.routeKind, gateway: grant.gateway, model, token, requestModel: requestModelFor(model, grant.routeKind) };
 };
 
-const accountModel = (env: AgentEnv, owner: string): Layer.Layer<Model> => Model.routed(env.MODEL, routedWorkersAI(routeAccess(env, owner)));
+const accountModel = (env: AgentEnv, owner: string): Layer.Layer<Model> => {
+	const access = routeAccess(env, owner);
+
+	return Model.routed(routedAccountProvider(access), async () => (await access()).model, env.MODEL);
+};
 
 const encodeSnapshot = Schema.encodeSync(SnapshotJson);
 

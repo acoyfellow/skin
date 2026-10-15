@@ -7,3 +7,4 @@ wrangler.deploy.jsonc
 .env.deploy
 deploy.local
 deploy.coey.secrets
+.settings-shot.png

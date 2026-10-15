@@ -105,12 +105,13 @@ type Agentic = {
 	readonly bodyChanged: BodyChanged;
 };
 
-type ModelChoice = { readonly provider: Provider; readonly modelId: string; readonly options: CreateModelsOptions };
+type ModelChoice = { readonly provider: Provider; readonly modelId: string; readonly options: CreateModelsOptions; readonly current: () => Promise<string> };
 
 export class Model extends Context.Service<Model, ModelChoice>()("skin/Model") {
-	static readonly workersAI = (modelId: string) => Layer.succeed(Model, { provider: cloudflareWorkersAIProvider(), modelId, options: { authContext: bindingAuthContext } });
+	static readonly workersAI = (modelId: string) =>
+		Layer.succeed(Model, { provider: cloudflareWorkersAIProvider(), modelId, options: { authContext: bindingAuthContext }, current: async () => modelId });
 
-	static readonly routed = (modelId: string, provider: Provider) => Layer.succeed(Model, { provider, modelId, options: {} });
+	static readonly routed = (provider: Provider, current: () => Promise<string>, initial: string) => Layer.succeed(Model, { provider, modelId: initial, options: {}, current });
 }
 
 export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {
@@ -165,11 +166,18 @@ export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {
 					Effect.map((messages) => toBlocks(Option.getOrElse(decodePiMessages(messages), () => []))),
 				);
 
+				const useCurrentModel = pi("configure", async () => {
+					const modelId = await choice.current();
+					const agent = await conversation.agent(CONTEXT);
+
+					if (agent.model?.modelId !== modelId || agent.model?.provider !== choice.provider.id) await conversation.configure({ model: { provider: choice.provider.id, modelId } }, CONTEXT);
+				});
+
 				const run = (requestId: string, input: string) =>
-					pi("submit", () => conversation.submit({ type: "input", content: input, requestId }, CONTEXT)).pipe(
+					useCurrentModel.pipe(Effect.andThen(pi("submit", () => conversation.submit({ type: "input", content: input, requestId }, CONTEXT)).pipe(
 						Effect.flatMap((submission) => pi("wait", () => submission.wait(CONTEXT))),
 						Effect.flatMap((settled) => (settled.status === "done" ? Effect.void : Effect.fail(new RunEnded({ status: settled.status })))),
-					);
+					)));
 
 				harness.resume();
 
