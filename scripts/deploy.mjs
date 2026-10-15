@@ -23,7 +23,11 @@ const zone = process.env.SKIN_ZONE;
 
 config.routes = zone === undefined || zone === "" ? [{ pattern: host, custom_domain: true }] : [{ pattern: `${host}/*`, zone_name: zone }];
 
+const gateway = process.env.SKIN_AI_GATEWAY ?? "";
+
 config.vars = { ...config.vars, ...authVars };
+
+if (gateway !== "") config.vars.SKIN_AI_GATEWAY = gateway;
 
 delete config.$schema;
 

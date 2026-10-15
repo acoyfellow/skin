@@ -1,11 +1,9 @@
-import { Option, Predicate, Result, Schema } from "effect";
+import { Option, Predicate, Schema } from "effect";
 import { modelOptionsFor, modelOrDefault } from "./catalog";
-import { DIRECT_ROUTE, kindOfRoute, type RouteChoice, routeValue, validateChoice } from "./route";
 import { settingsPage } from "./settings-page";
 import { type Directory, DIRECTORY_NAME, type Grant } from "./directory";
 import {
   accountsOf,
-  gatewaysOf,
   authorizeUrl,
   exchangeCode,
   type OAuthClient,
@@ -104,6 +102,13 @@ export const directoryOf = (env: CloudflareAuthEnv) =>
 export class SignedOut extends Error {}
 
 export const SETTINGS_PATH = "/settings";
+
+export type Inference = { readonly gateway: string | null; readonly fallbackModel: string };
+
+export const inferenceOf = (env: { readonly MODEL: string; readonly SKIN_AI_GATEWAY?: string }): Inference => ({
+  gateway: env.SKIN_AI_GATEWAY === undefined || env.SKIN_AI_GATEWAY === "" ? null : env.SKIN_AI_GATEWAY,
+  fallbackModel: env.MODEL,
+});
 
 export const freshToken = async (
   env: CloudflareAuthEnv,
@@ -344,55 +349,31 @@ export const cloudflareAuth = (
     return redirect("/", [clearCookie(jar, jar.session)]);
   };
 
-  const settings = async (request: Request, fallbackModel: string): Promise<Response> => {
+  const settings = async (request: Request, inference: Inference): Promise<Response> => {
     const session = await sessionOf(request);
 
     if (session === null) return redirect("/");
 
-    const fresh = await freshToken(env, session.owner, send).catch((cause) => {
-      if (cause instanceof SignedOut) return null;
+    const grant = await directory().grantFor(session.owner);
 
-      throw cause;
-    });
+    if (grant === null) return redirect("/");
 
-    if (fresh === null) return redirect("/");
-
-    const accounts = await accountsOf(fresh.token, send);
     const form = request.method === "POST" ? await request.formData() : null;
 
     if (form !== null && request.headers.get("origin") !== new URL(request.url).origin) return new Response("cross-origin request refused", { status: 403 });
 
-    const field = (name: string, otherwise: string) => {
-      const value = form?.get(name);
-
-      return Predicate.isString(value) ? value : otherwise;
-    };
-
-    const accountId = field("account", fresh.grant.accountId);
-    const gateways = await gatewaysOf(fresh.token, accountId, send);
-    const refreshing = field("intent", "save") === "refresh";
-    const savedRoute = routeValue({ kind: fresh.grant.routeKind, gateway: fresh.grant.gateway });
-    const requestedRoute = field("route", savedRoute);
-    const routeOnAccount = requestedRoute === DIRECT_ROUTE || gateways.some((gateway) => gateway.authenticated && routeValue({ kind: "gateway", gateway: gateway.id }) === requestedRoute);
-    const routeChoice = routeOnAccount || !refreshing ? requestedRoute : DIRECT_ROUTE;
-    const models = modelOptionsFor(kindOfRoute(routeChoice));
-    const requestedModel = field("model", modelOrDefault(fresh.grant.model, fallbackModel));
-    const modelFits = models.some((model) => model.id === requestedModel);
-    const chosen: RouteChoice = { accountId, route: routeChoice, model: modelFits || !refreshing ? requestedModel : (models[0]?.id ?? fallbackModel) };
+    const models = modelOptionsFor(inference.gateway);
+    const posted = form?.get("model");
+    const requested = Predicate.isString(posted) ? posted : modelOrDefault(grant.model, inference.fallbackModel, inference.gateway);
 
     const view = (saved: boolean, error: Option.Option<string>, status = 200) =>
-      html(settingsPage({ accounts, gateways, models, chosen, saved, error, firstTime: fresh.grant.model === null }), status);
+      html(settingsPage({ gateway: inference.gateway, models, chosen: requested, saved, error, firstTime: grant.model === null }), status);
 
-    if (form === null || refreshing) return view(false, Option.none());
+    if (form === null) return view(false, Option.none());
 
-    const validated = validateChoice(chosen, accounts, gateways, modelOptionsFor);
+    if (!models.some((model) => model.id === requested)) return view(false, Option.some("Pick one of the listed models."), 400);
 
-    if (Result.isFailure(validated)) return view(false, Option.some(validated.failure.message), 400);
-
-    const route = validated.success;
-    const account = accounts.find((each) => each.id === route.accountId);
-
-    await directory().saveGrant({ ...fresh.grant, accountId: route.accountId, accountName: account?.name ?? route.accountId, routeKind: route.kind, gateway: route.gateway, model: route.model });
+    await directory().saveGrant({ ...grant, model: requested });
 
     return view(true, Option.none());
   };

@@ -1,12 +1,13 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Type } from "@earendil-works/pi-ai";
 import { type CreateModelsOptions, createModels, type Provider } from "@earendil-works/pi-ai/models";
-import { cloudflareWorkersAIProvider } from "@earendil-works/pi-ai/providers/cloudflare-workers-ai";
 import { type Conversation, createRegistry, defineExtension, defineTool, Harness, LiveDoc, section } from "@earendil-works/pi-durable";
 import { Context, Effect, Layer, Option, Queue, Schema, Stream } from "effect";
 import { type Block, BodyFrame, type ShipReport } from "../shared/protocol";
 import { type BodyUnavailable, Repo, type RepoFiles } from "./files";
-import { bindingAuthContext } from "./model";
+import { workersAIProvider } from "./model";
+import { bindingFetch, gatewayProvider } from "./gateway";
+import { gatewayModelId } from "./auth/catalog";
 import { Broadcast } from "./services";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import { decodePiLiveState, decodePiMessages, type PiLiveState, toBlocks } from "./view";
@@ -108,10 +109,13 @@ type Agentic = {
 type ModelChoice = { readonly provider: Provider; readonly modelId: string; readonly options: CreateModelsOptions; readonly current: () => Promise<string> };
 
 export class Model extends Context.Service<Model, ModelChoice>()("skin/Model") {
-	static readonly workersAI = (modelId: string) =>
-		Layer.succeed(Model, { provider: cloudflareWorkersAIProvider(), modelId, options: { authContext: bindingAuthContext }, current: async () => modelId });
+	static readonly workersAIChosen = (ai: Ai, current: () => Promise<string>, initial: string) =>
+		Layer.succeed(Model, { provider: workersAIProvider(ai), modelId: initial, options: {}, current });
 
-	static readonly routed = (provider: Provider, current: () => Promise<string>, initial: string) => Layer.succeed(Model, { provider, modelId: initial, options: {}, current });
+	static readonly workersAI = (ai: Ai, modelId: string) => Model.workersAIChosen(ai, async () => modelId, modelId);
+
+	static readonly gateway = (ai: Ai, gateway: string, current: () => Promise<string>, initial: string) =>
+		Layer.succeed(Model, { provider: gatewayProvider(gateway, bindingFetch(ai)), modelId: gatewayModelId(initial), options: {}, current: async () => gatewayModelId(await current()) });
 }
 
 export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {

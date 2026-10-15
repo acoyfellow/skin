@@ -1,5 +1,4 @@
 import { DurableObject } from "cloudflare:workers";
-import type { RouteKind } from "./route";
 
 export type Grant = {
   readonly owner: string;
@@ -10,7 +9,7 @@ export type Grant = {
   readonly refreshToken: string | null;
   readonly expiresAt: number;
   readonly scope: string;
-  readonly routeKind: RouteKind;
+  readonly routeKind: "workers-ai" | "gateway";
   readonly gateway: string | null;
   readonly model: string | null;
 };

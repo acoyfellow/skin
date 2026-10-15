@@ -6,28 +6,27 @@ import type { Body } from "./body";
 import { Repo } from "./files";
 import { ownerOfAgent, UserId } from "./identity";
 import { type HarnessFailed, Model, Pi } from "./harness";
-import { CLOUDFLARE_OWNER_PREFIX, type CloudflareAuthEnv, freshToken } from "./auth/cloudflare";
-import { modelOrDefault, requestModelFor, routedAccountProvider } from "./auth/catalog";
-import type { RouteAccess } from "./auth/route";
-import { routeWorkersAIThroughBinding } from "./model";
+import { CLOUDFLARE_OWNER_PREFIX, type CloudflareAuthEnv, directoryOf, inferenceOf } from "./auth/cloudflare";
+import { modelOrDefault } from "./auth/catalog";
 import { Meta } from "./meta";
 import { Broadcast, DurableObjectContext, Store } from "./services";
 
-export type AgentEnv = CloudflareAuthEnv & { readonly AI: Ai; readonly BODY: DurableObjectNamespace<Body>; readonly MODEL: string };
+export type AgentEnv = CloudflareAuthEnv & { readonly AI: Ai; readonly BODY: DurableObjectNamespace<Body>; readonly MODEL: string; readonly SKIN_AI_GATEWAY?: string };
 
 const INFERENCE_OWNER = "inference-owner";
 
-const routeAccess = (env: AgentEnv, owner: string) => async (): Promise<RouteAccess> => {
-	const { grant, token } = await freshToken(env, owner);
-	const model = modelOrDefault(grant.model, env.MODEL);
+const chosenModel = (env: AgentEnv, owner: string) => async (): Promise<string> => {
+	const inference = inferenceOf(env);
+	const grant = await directoryOf(env).grantFor(owner);
 
-	return { accountId: grant.accountId, kind: grant.routeKind, gateway: grant.gateway, model, token, requestModel: requestModelFor(model, grant.routeKind) };
+	return modelOrDefault(grant?.model ?? null, inference.fallbackModel, inference.gateway);
 };
 
 const accountModel = (env: AgentEnv, owner: string): Layer.Layer<Model> => {
-	const access = routeAccess(env, owner);
+	const gateway = inferenceOf(env).gateway;
+	const current = chosenModel(env, owner);
 
-	return Model.routed(routedAccountProvider(access), async () => (await access()).model, env.MODEL);
+	return gateway === null ? Model.workersAIChosen(env.AI, current, env.MODEL) : Model.gateway(env.AI, gateway, current, env.MODEL);
 };
 
 const encodeSnapshot = Schema.encodeSync(SnapshotJson);
@@ -55,7 +54,7 @@ const NO_OWNER = "u00000000000000000000";
 const modelFor = (ctx: DurableObjectState, env: AgentEnv): Layer.Layer<Model> => {
 	const owner = ctx.storage.kv.get<string>(INFERENCE_OWNER);
 
-	return owner !== undefined && owner.startsWith(CLOUDFLARE_OWNER_PREFIX) ? accountModel(env, owner) : Model.workersAI(env.MODEL);
+	return owner !== undefined && owner.startsWith(CLOUDFLARE_OWNER_PREFIX) ? accountModel(env, owner) : Model.workersAI(env.AI, env.MODEL);
 };
 
 const layerFor = (ctx: DurableObjectState, env: AgentEnv) =>
@@ -77,7 +76,6 @@ export class Agent extends DurableObject<AgentEnv> {
 
 	constructor(ctx: DurableObjectState, env: AgentEnv) {
 		super(ctx, env);
-		routeWorkersAIThroughBinding(env.AI);
 	}
 
 	private run<A, E>(name: Option.Option<ConversationName>, effect: Effect.Effect<A, E, Services>): Promise<A> {

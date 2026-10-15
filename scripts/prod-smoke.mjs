@@ -5,11 +5,7 @@ const BASE = process.env.SMOKE_BASE ?? "https://skin.coey.dev";
 
 const SURFACE = process.env.SMOKE_SURFACE ?? "surface:263";
 
-const GATEWAY_MODEL = process.env.SMOKE_GATEWAY_MODEL ?? "claude-opus-5-5";
-
-const GATEWAY = process.env.SMOKE_GATEWAY ?? "gateway:jordan";
-
-const DIRECT_MODEL = process.env.SMOKE_DIRECT_MODEL ?? "@cf/zai-org/glm-5.3-flash";
+const MODELS = (process.env.SMOKE_MODELS ?? "claude-opus-5-5,@cf/zai-org/glm-5.3-flash").split(",").filter((model) => model !== "");
 
 const FRESH_BUILD_FLOOR_MS = 2000;
 
@@ -53,21 +49,18 @@ const step = async (name, run) => {
 	}
 };
 
-const saveRoute = (route, model) =>
+const saveModel = (model) =>
 	evaluate(
 		[
-			"const page=await (await fetch('/settings')).text();",
-			"const picked=[...new DOMParser().parseFromString(page,'text/html').querySelectorAll('select[name=account] option')];",
-			"const account=(picked.find(o=>o.selected)||picked[0]).value;",
-			"const f=new FormData();f.set('account',account);",
-			`f.set('route',${JSON.stringify(route)});f.set('model',${JSON.stringify(model)});f.set('intent','save');`,
+			"const f=new FormData();",
+			`f.set('model',${JSON.stringify(model)});`,
 			"const t=await (await fetch('/settings',{method:'POST',body:f})).text();",
-			"if(!t.includes('notice saved'))throw new Error('settings did not save');",
+			"if(!t.includes('notice saved'))throw new Error('this deploy does not offer that model');",
 			"return 'saved';",
 		].join(""),
 	);
 
-const routeCheck = () => evaluate("return await (await fetch('/_kernel/api/route-check',{method:'POST'})).json()", 60_000);
+const inferenceCheck = () => evaluate("return await (await fetch('/_kernel/api/inference-check',{method:'POST'})).json()", 90_000);
 
 const chat = async (text) => {
 	browser("goto", `${BASE}/`);
@@ -131,23 +124,16 @@ await step("a fresh build goes live", async () => {
 	return `generation ${report.generation} live, bundled in ${bundle.ms} ms, marker served`;
 });
 
-await step(`chat replies on Workers AI direct (${DIRECT_MODEL})`, async () => {
-	await saveRoute("workers-ai", DIRECT_MODEL);
-	const check = await routeCheck();
+for (const model of MODELS) {
+	await step(`chat replies with ${model}`, async () => {
+		await saveModel(model);
+		const check = await inferenceCheck();
 
-	if (!check.ok) throw new Error(check.problem ?? `route check ${check.status}`);
+		if (!check.ok) throw new Error(`${check.route}: ${check.problem ?? check.status}`);
 
-	return chat("Reply with exactly the word: pong");
-});
-
-await step(`chat replies through ${GATEWAY} (${GATEWAY_MODEL})`, async () => {
-	await saveRoute(GATEWAY, GATEWAY_MODEL);
-	const check = await routeCheck();
-
-	if (!check.ok) throw new Error(check.problem ?? `route check ${check.status}`);
-
-	return chat("Reply with exactly the word: pong");
-});
+		return `${check.route}; ${await chat("Reply with exactly the word: pong")}`;
+	});
+}
 
 const failed = results.filter((result) => !result.ok);
 

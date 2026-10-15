@@ -1,15 +1,8 @@
-import { Effect, Option, Schema } from "effect";
-
-const ANSWERED_BY_BINDING = "answered-in-process-by-the-ai-binding";
-
-const CREDENTIAL_NAMES = new Set(["CLOUDFLARE_API_KEY", "CLOUDFLARE_ACCOUNT_ID"]);
-
-const CHAT_COMPLETIONS = /^https:\/\/api\.cloudflare\.com\/.*\/ai\/v1\/chat\/completions$/;
-
-export const bindingAuthContext = {
-	env: async (name: string): Promise<string | undefined> => (CREDENTIAL_NAMES.has(name) ? ANSWERED_BY_BINDING : undefined),
-	fileExists: async (): Promise<boolean> => false,
-};
+import type { Provider, ProviderStreams } from "@earendil-works/pi-ai";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import { createProvider } from "@earendil-works/pi-ai/models";
+import { CLOUDFLARE_WORKERS_AI_MODELS } from "@earendil-works/pi-ai/providers/cloudflare-workers-ai.models";
+import { Effect, Schema } from "effect";
 
 const ChatRequest = Schema.StructWithRest(Schema.Struct({ model: Schema.String }), [Schema.Record(Schema.String, Schema.Json)]);
 
@@ -17,7 +10,7 @@ const decodeChatRequest = Schema.decodeUnknownEffect(Schema.fromJsonString(ChatR
 
 class BindingFailed extends Schema.TaggedError<BindingFailed>()("BindingFailed", { cause: Schema.Defect() }) {}
 
-type AiRun = (model: string, inputs: Readonly<Record<string, Schema.Json>>) => Promise<ReadableStream | AiModels[keyof AiModels]["postProcessedOutputs"]>;
+export type AiRun = (model: string, inputs: Readonly<Record<string, Schema.Json>>) => Promise<ReadableStream | AiModels[keyof AiModels]["postProcessedOutputs"]>;
 
 const answer = (run: AiRun, request: Request) =>
 	Effect.tryPromise({ try: () => request.text(), catch: (cause) => new BindingFailed({ cause }) }).pipe(
@@ -29,31 +22,27 @@ const answer = (run: AiRun, request: Request) =>
 		Effect.catch((error) => Effect.succeed(Response.json({ error: { message: String(error) } }, { status: 502 }))),
 	);
 
-const urlOf = (input: RequestInfo | URL): string => (input instanceof Request ? input.url : String(input));
+export const workersAIFetch =
+	(run: AiRun): typeof fetch =>
+	(input, init) =>
+		Effect.runPromise(answer(run, new Request(input, init)));
 
-const BINDING_BEARER = `Bearer ${ANSWERED_BY_BINDING}`;
+const WORKERS_AI_PROVIDER = "skin-workers-ai";
 
-const authorizationOf = (input: RequestInfo | URL, init: RequestInit | undefined): string | null =>
-	init?.headers === undefined ? (input instanceof Request ? input.headers.get("authorization") : null) : new Headers(init.headers).get("authorization");
+const BINDING_ORIGIN = "https://workers-ai.binding.invalid/v1";
 
-export const isForBinding = (input: RequestInfo | URL, init: RequestInit | undefined): boolean => CHAT_COMPLETIONS.test(urlOf(input)) && authorizationOf(input, init) === BINDING_BEARER;
+const models = Object.values(CLOUDFLARE_WORKERS_AI_MODELS).map((model) => ({ ...model, provider: WORKERS_AI_PROVIDER, baseUrl: BINDING_ORIGIN }));
 
+const withFetch = (streams: ProviderStreams, send: typeof fetch): ProviderStreams => ({
+	stream: (model, context, options) => streams.stream(model, context, { ...options, fetch: send }),
+	streamSimple: (model, context, options) => streams.streamSimple(model, context, { ...options, fetch: send }),
+});
 
-let bridge: Option.Option<{ run: AiRun }> = Option.none();
-
-export const routeWorkersAIThroughBinding = (ai: Ai): void => {
-	const run: AiRun = (model, inputs) => ai.run(model, inputs);
-
-	if (Option.isSome(bridge)) {
-		bridge.value.run = run;
-
-		return;
-	}
-
-	const current = { run };
-	const original = globalThis.fetch.bind(globalThis);
-
-	bridge = Option.some(current);
-	globalThis.fetch = (input, init) =>
-		isForBinding(input, init) ? Effect.runPromise(answer(current.run, new Request(input, init))) : original(input, init);
-};
+export const workersAIProvider = (ai: Ai): Provider =>
+	createProvider({
+		id: WORKERS_AI_PROVIDER,
+		name: "Workers AI",
+		auth: { apiKey: { name: "this Worker's AI binding", resolve: async () => ({ auth: { apiKey: "ai-binding" } }) } },
+		models,
+		api: { "openai-completions": withFetch(openAICompletionsApi(), workersAIFetch((model, inputs) => ai.run(model, inputs))) },
+	});
