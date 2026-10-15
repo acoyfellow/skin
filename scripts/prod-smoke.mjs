@@ -64,10 +64,14 @@ const routeCheck = () => evaluate("return await (await fetch('/_kernel/api/route
 
 const chat = async (text) => {
 	await page.goto(`${BASE}/`);
+	await page.waitForLoadState("networkidle").catch(() => undefined);
+	await sleep(20_000);
 	await page.locator("#task").waitFor({ timeout: 60_000 });
 	await page.getByRole("button", { name: "New chat" }).click().catch(() => undefined);
-	await page.locator("#task").fill(text);
-	await page.locator("#task").press("Enter");
+	await page.waitForURL((url) => url.pathname.startsWith("/c/"), { timeout: 10_000 }).catch(() => undefined);
+	await page.locator("#task").click();
+	await page.keyboard.type(text);
+	await page.locator("#send").click();
 
 	for (let tries = 0; tries < 60; tries++) {
 		await sleep(3000);
