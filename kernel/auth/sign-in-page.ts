@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import { PWA_HEAD, socialHead } from "../pwa";
 
 const escapeHtml = (value: string) =>
   value
@@ -41,13 +42,13 @@ export const signInPage = (
 <meta name="color-scheme" content="light dark">
 <title>skin · an app you change by asking</title>
 <meta name="description" content="skin is a personal app with an agent inside. Ask for a change and it rewrites itself, and only goes live if it works.">
-<meta property="og:title" content="skin">
-<meta property="og:description" content="An app you change by asking. It only goes live if it works.">
-<meta property="og:image" content="${origin}/_kernel/hero.png">
-<meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="/_kernel/icon.png" type="image/png">
+<meta name="robots" content="index, follow">
+${socialHead(origin)}
+${PWA_HEAD}
+<link rel="preload" as="image" href="/_kernel/hero-640.webp" type="image/webp" fetchpriority="high">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,300..700&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,300..700&display=optional" media="print" onload="this.media='all'">
 <style>
 :root { --bg: #ffffff; --panel: #fafafa; --line: #ebebeb; --ink: #171717; --dim: #4d4d4d; --faint: #737373; --life: #7c3aed; --bad: #c41a1a; --bad-soft: #fff0f0; }
 @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --panel: #111111; --line: #242424; --ink: #ededed; --dim: #a1a1a1; --faint: #8f8f8f; --life: #b79cff; --bad: #ff6166; --bad-soft: #2a1011; } }
@@ -76,7 +77,7 @@ footer a { color: inherit; }
 </head>
 <body>
 <main>
-<header><img src="/_kernel/icon.png" alt="" width="28" height="28">skin</header>
+<header><img src="/_kernel/icon-64.png" alt="" width="28" height="28">skin</header>
 <section class="hero">
 <div>
 <h1>An app you change <span>by asking.</span></h1>
@@ -85,7 +86,7 @@ ${Option.match(error, { onNone: () => "", onSome: (message) => `<p class="error"
 <a class="cta" href="/oauth/login">Sign in with Cloudflare</a>
 <ol class="steps">${STEPS.map((step) => `<li>${step}</li>`).join("")}</ol>
 </div>
-<img class="art" src="/_kernel/hero.png" alt="" width="320" height="320">
+<img class="art" src="/_kernel/hero-640.webp" srcset="/_kernel/hero-320.webp 320w, /_kernel/hero-640.webp 640w" sizes="(max-width: 760px) 280px, 320px" alt="Soft violet membranes, the skin artwork" width="320" height="320" fetchpriority="high" decoding="async">
 </section>
 <ul class="points">${POINTS.map(({ title, body }) => `<li><strong>${title}</strong><span>${body}</span></li>`).join("")}</ul>
 <footer>Chat held to <a href="https://github.com/acoyfellow/basic">Basic</a>, the conformance suite for agent chat.</footer>

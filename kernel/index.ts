@@ -25,6 +25,7 @@ import { accessConfig, accessToken, verifyAccessToken } from "./access";
 import { Agent, type AgentEnv } from "./agent";
 import { Body } from "./body";
 import { Builder } from "./builder";
+import { type Exposure, harden, robots, sitemap } from "./pwa";
 import { kernelAsset, publicAsset } from "./shell";
 import { agentName, devSubject, type Person, type UserId, userIdOf } from "./identity";
 import { BodyStore } from "./store";
@@ -266,15 +267,49 @@ const admit = (request: Request, env: Env): Promise<Admission> => {
 
 const whoAmI = (person: Person, env: Env) => Response.json({ user: person.user, email: Option.getOrNull(person.email), version: env.CF_VERSION_METADATA?.id ?? "unknown" });
 
+const exposureOf = (env: Env): Exposure => (env.SKIN_AUTH === "cloudflare" ? "public" : "private");
+
+const SIGN_IN_PATHS = new Set(["/", "/oauth/login", "/oauth/callback", "/oauth/logout"]);
+
+const wantsPage = (request: Request) => request.method === "GET" && (request.headers.get("Accept") ?? "").includes("text/html");
+
+const signedOut = (request: Request, env: Env, refused: Response): Response => {
+	const { pathname } = new URL(request.url);
+
+	if (env.SKIN_AUTH !== "cloudflare" || SIGN_IN_PATHS.has(pathname) || refused.status !== 200) return refused;
+
+	return wantsPage(request) ? new Response(null, { status: 302, headers: { location: "/" } }) : Response.json({ error: "sign in with Cloudflare at /oauth/login" }, { status: 401 });
+};
+
+const route = async (request: Request, env: Env): Promise<{ readonly response: Response; readonly indexable: boolean }> => {
+	const url = new URL(request.url);
+
+	if (url.pathname === "/robots.txt") return { response: robots(exposureOf(env), url.origin), indexable: true };
+
+	if (url.pathname === "/sitemap.xml") return { response: sitemap(exposureOf(env), url.origin), indexable: true };
+
+	const open = publicAsset(url.pathname);
+
+	if (Option.isSome(open)) return { response: open.value, indexable: true };
+
+	const admission = await admit(request, env);
+
+	if (admission._tag === "Refused") return { response: signedOut(request, env, admission.response), indexable: exposureOf(env) === "public" && url.pathname === "/" };
+
+	return { response: await serve(request, env, admission.person), indexable: false };
+};
+
 export default {
 	async fetch(request, env) {
-		const open = publicAsset(new URL(request.url).pathname);
+		const { response, indexable } = await route(request, env);
 
-		if (Option.isSome(open)) return open.value;
+		return harden(response, indexable);
+	},
+} satisfies ExportedHandler<Env>;
 
-		const admission = await admit(request, env);
-
-		if (admission._tag === "Refused") return admission.response;
+const serve = async (request: Request, env: Env, person: Person): Promise<Response> => {
+	{
+		const admission = { _tag: "Admitted" as const, person };
 
 		if (env.SKIN_AUTH === "cloudflare" && new URL(request.url).pathname === `${KERNEL_PREFIX}/api/route-check` && request.method === "POST" && isSameOrigin(request))
 			return Response.json(await checkRoute(env, admission.person.subject));
@@ -343,5 +378,5 @@ export default {
 		if (isKernel) return refuse(404, "not found");
 
 		return bodyOf(env, user).fetch(request);
-	},
-} satisfies ExportedHandler<Env>;
+	}
+};
