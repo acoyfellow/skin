@@ -69,3 +69,76 @@
 		}
 	}
 }
+
+@layer components {
+	@media (min-width: 768px) {
+		[data-chats="hidden"] .panel-chats,
+		[data-files="hidden"] .panel-files,
+		[data-chats="hidden"] .panel-resize-chats,
+		[data-files="hidden"] .panel-resize-files {
+			display: none !important;
+		}
+
+		.panels > .panel-chats {
+			grid-column: 1;
+			grid-row: 1;
+		}
+
+		.panels > :not(.panel-chats, .panel-files, .panel-resize) {
+			grid-column: 2;
+			grid-row: 1;
+		}
+
+		.panels > .panel-files {
+			grid-column: 3;
+			grid-row: 1;
+		}
+
+		.panel-resize {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			z-index: 5;
+			width: 9px;
+			cursor: col-resize;
+			touch-action: none;
+		}
+
+		.panel-resize-chats {
+			left: calc(var(--chats-w, 220px) - 4px);
+		}
+
+		.panel-resize-files {
+			right: calc(var(--files-w, 340px) - 5px);
+		}
+
+		.panel-resize:hover::after,
+		.panel-resize:focus-visible::after,
+		.panel-resize[data-active]::after {
+			content: "";
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			left: 3px;
+			width: 3px;
+			background: var(--color-info);
+			opacity: 0.6;
+		}
+	}
+
+	@media (max-width: 767px) {
+		.panel-resize {
+			display: none;
+		}
+	}
+
+	[data-resizing],
+	[data-resizing] * {
+		cursor: col-resize !important;
+		user-select: none !important;
+	}
+
+	[data-resizing] iframe {
+		pointer-events: none;
+	}
+}

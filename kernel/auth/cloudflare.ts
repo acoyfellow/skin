@@ -176,15 +176,7 @@ export const cloudflareAuth = (
     request: Request,
     error: string | undefined,
     status: number,
-  ) => {
-    const jar = cookieJar(request.url);
-
-    return html(
-      signInPage(new URL(request.url).origin, Option.fromNullishOr(error)),
-      status,
-      { "set-cookie": clearCookie(jar, jar.flow) },
-    );
-  };
+  ) => html(signInPage(new URL(request.url).origin, Option.fromNullishOr(error)), status);
 
   const notReady = (request: Request) =>
     page(

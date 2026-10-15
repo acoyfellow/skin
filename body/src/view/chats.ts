@@ -126,7 +126,7 @@ const groupedRows = (h: H, model: Model): ReadonlyArray<Html> => {
 
 export const chatsPanel = (h: H, model: Model): Html =>
 	h.nav(
-		[h.Class("hidden min-h-0 flex-col border-r border-line bg-panel md:flex"), h.AriaLabel("Chats")],
+		[h.Id("panel-chats"), h.Class("panel-chats hidden min-h-0 min-w-0 flex-col overflow-hidden border-r border-line bg-panel md:flex"), h.AriaLabel("Chats")],
 		[
 			h.div(
 				[h.Class("grid gap-2 p-3")],

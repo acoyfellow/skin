@@ -307,7 +307,8 @@ export const filesPanel = (h: H, model: Model): Html => {
 
 	return h.aside(
 		[
-			h.Class(`${model.filesPanelOpen ? "fixed inset-0 top-14 z-10 block" : "hidden"} overflow-y-auto border-l border-line bg-panel md:static md:block`),
+			h.Id("panel-files"),
+			h.Class(`panel-files ${model.filesPanelOpen ? "fixed inset-0 top-14 z-10 block" : "hidden"} min-w-0 overflow-x-hidden overflow-y-auto border-l border-line bg-panel md:static md:block`),
 			h.AriaLabel("Files and versions"),
 		],
 		[

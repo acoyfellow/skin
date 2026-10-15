@@ -8,6 +8,7 @@ import type { AgentClient } from "./rpc";
 import type { Flags as StartupFlags } from "./main";
 import { update } from "./update";
 import { view } from "./view";
+import { installLayout } from "./layout";
 
 const application = Runtime.makeApplication<Model, Message, StartupFlags, AgentClient, ManagedResource.ServiceOf<typeof AgentSocket>>({
 	Model,
@@ -23,3 +24,5 @@ const application = Runtime.makeApplication<Model, Message, StartupFlags, AgentC
 });
 
 Runtime.run(application, { flags });
+
+installLayout();

@@ -9,6 +9,7 @@ import { transcript } from "./transcript";
 import { ComposerKeys } from "../composer";
 import { FollowLog } from "../follow";
 import { isOffline } from "../socket";
+import type { Edge } from "../layout";
 
 type H = HtmlBuilder<Message>;
 
@@ -36,6 +37,54 @@ const button = (h: H, label: string | Html, message: Message, style: string, dis
 
 const divider = (h: H): Html => h.span([h.Class("h-4 w-px bg-line-strong"), h.AriaHidden(true)], []);
 
+const PANEL_ICON: Readonly<Record<Edge, string>> = {
+	chats: "M3 4h18v16H3zM9 4v16",
+	files: "M3 4h18v16H3zM15 4v16",
+};
+
+const PANEL_NAME: Readonly<Record<Edge, string>> = {
+	chats: "Show or hide chats",
+	files: "Show or hide files and versions",
+};
+
+const PANEL_SHORTCUT: Readonly<Record<Edge, string>> = { chats: "⌘B", files: "⌘J" };
+
+const panelToggle = (h: H, edge: Edge): Html =>
+	h.button(
+		[
+			h.Type("button"),
+			h.Id(`toggle-${edge}`),
+			h.Class("hidden size-8 items-center justify-center rounded-md text-dim hover:bg-raised hover:text-ink md:inline-flex"),
+			h.DataAttribute("panel-toggle", edge),
+			h.AriaLabel(PANEL_NAME[edge]),
+			h.AriaControls(`panel-${edge}`),
+			h.AriaExpanded(true),
+			h.Title(`${PANEL_NAME[edge]} (${PANEL_SHORTCUT[edge]})`),
+		],
+		[
+			h.svg(
+				[h.ViewBox("0 0 24 24"), h.Class("size-4"), h.Fill("none"), h.Stroke("currentColor"), h.StrokeWidth("1.75"), h.AriaHidden(true)],
+				[h.path([h.D(PANEL_ICON[edge]), h.StrokeLinejoin("round")], [])],
+			),
+		],
+	);
+
+const resizeHandle = (h: H, edge: Edge): Html =>
+	h.div(
+		[
+			h.Id(`resize-${edge}`),
+			h.Class(`panel-resize panel-resize-${edge}`),
+			h.DataAttribute("panel-resize", edge),
+			h.Role("separator"),
+			h.AriaOrientation("vertical"),
+			h.AriaLabel(edge === "chats" ? "Resize chats" : "Resize files and versions"),
+			h.AriaControls(`panel-${edge}`),
+			h.Tabindex(0),
+			h.Title("Drag to resize. Double click to reset."),
+		],
+		[],
+	);
+
 const header = (h: H, model: Model): Html => {
 	const status = statusOf(model);
 
@@ -58,6 +107,8 @@ const header = (h: H, model: Model): Html => {
 					h.div(
 						[h.Class("flex items-center gap-2")],
 						[
+							panelToggle(h, "chats"),
+							panelToggle(h, "files"),
 							h.span([h.Class("md:hidden")], [button(h, "Files", Message.ToggledFilesPanel(), SECONDARY)]),
 							h.span([h.Class("md:hidden")], [button(h, "New chat", Message.ClickedNew(), SECONDARY)]),
 							h.a([h.Id("model-settings"), h.Href("/settings"), h.Class("rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised")], ["Model"]),
@@ -169,7 +220,7 @@ const conversation = (h: H, model: Model): Html =>
 		[h.Class("grid min-h-0 grid-rows-[1fr_auto]"), h.AriaLabel("Conversation")],
 		[
 			h.div([h.Class("relative min-h-0")], [
-				h.div([h.Id("log"), h.Class("h-full overflow-y-auto px-5 pt-8 pb-4"), h.Role("log"), h.AriaLive("polite"), h.AriaLabel("Conversation"), h.OnMount(FollowLog())], [transcript(h, model)]),
+				h.div([h.Id("log"), h.Class("@container h-full overflow-y-auto px-5 pt-8 pb-4"), h.Role("log"), h.AriaLive("polite"), h.AriaLabel("Conversation"), h.OnMount(FollowLog())], [transcript(h, model)]),
 				...jumpButton(h, model),
 			]),
 			h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)]),
@@ -183,10 +234,12 @@ export const view = (model: Model, h: H): Document => ({
 		[
 			header(h, model),
 			h.main(
-				[h.Class("grid min-h-0 grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)_340px]")],
+				[h.Class("panels relative grid min-h-0 grid-cols-1 md:grid-cols-[var(--chats-w,220px)_minmax(0,1fr)_var(--files-w,340px)]")],
 				[
 					chatsPanel(h, model),
+					resizeHandle(h, "chats"),
 					Option.getOrElse(fileViewer(h, model), () => conversation(h, model)),
+					resizeHandle(h, "files"),
 					filesPanel(h, model),
 				],
 			),

@@ -164,13 +164,13 @@ const emptyState = (h: H): Html =>
 		[h.Class("mx-auto grid max-w-[720px] gap-10")],
 		[
 			h.div(
-				[h.Class("grid items-center gap-6 sm:grid-cols-[minmax(0,1fr)_200px]")],
+				[h.Class("grid items-center gap-6 @lg:grid-cols-[minmax(0,1fr)_200px]")],
 				[
 					h.div(
 						[h.Class("grid gap-3")],
 						[
 							h.h2(
-								[h.Class("text-[34px] leading-[1.1] font-semibold tracking-[-0.03em]")],
+								[h.Class("text-[26px] leading-[1.1] font-semibold tracking-[-0.03em] @lg:text-[34px]")],
 								["This is your own skin. ", h.span([h.Class("text-life")], ["Change anything."])],
 							),
 							h.p(
@@ -181,14 +181,14 @@ const emptyState = (h: H): Html =>
 							),
 						],
 					),
-					h.img([h.Src("/_kernel/hero.png"), h.Alt(""), h.Class("hidden aspect-square w-full rounded-xl object-cover sm:block")]),
+					h.img([h.Src("/_kernel/hero.png"), h.Alt(""), h.Class("hidden aspect-square w-full rounded-xl object-cover @lg:block")]),
 				],
 			),
 			h.ol(
-				[h.Class("grid gap-5 border-t border-line pt-6 lg:grid-cols-3")],
+				[h.Class("grid gap-5 border-t border-line pt-6 @2xl:grid-cols-3")],
 				steps.map(([lead, detail], index) =>
 					h.li(
-						[h.Class("grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 lg:grid-cols-1 lg:gap-y-2")],
+						[h.Class("grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 @2xl:grid-cols-1 @2xl:gap-y-2")],
 						[
 							h.span([h.Class(`font-mono text-[13px] ${index === 2 ? "text-life" : "text-faint"}`)], [`0${index + 1}`]),
 							h.div([h.Class("grid gap-0.5")], [h.span([h.Class("font-medium")], [lead]), h.span([h.Class("text-[13px] text-dim")], [detail])]),

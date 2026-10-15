@@ -120,6 +120,26 @@ await step("a fresh build goes live", async () => {
 	return `generation ${report.generation} live, bundled in ${bundle.ms} ms, marker served`;
 });
 
+await step("a new visitor can start sign-in after seeing the landing page", async () => {
+	const visitor = await browserApp.newContext();
+	const tab = await visitor.newPage();
+
+	await tab.goto(`${BASE}/`);
+	await tab.waitForTimeout(2000);
+	await tab.goto(`${BASE}/oauth/login`, { waitUntil: "commit" }).catch(() => undefined);
+	await tab.waitForTimeout(3000);
+	await tab.goto(`${BASE}/`).catch(() => undefined);
+	await tab.waitForTimeout(2000);
+
+	const names = (await visitor.cookies(BASE)).map((each) => each.name);
+
+	await visitor.close();
+
+	if (!names.includes("__Host-skin_oauth")) throw new Error("the pending sign-in cookie was lost, so the callback would say the link expired");
+
+	return "pending sign-in survives a landing-page load";
+});
+
 await step("an anonymous caller is refused", async () => {
 	const api = await fetch(`${BASE}/_kernel/api/body`, { headers: { accept: "application/json" } });
 	const rpc = await fetch(`${BASE}/_kernel/api/route-check`, { method: "POST", headers: { accept: "application/json", origin: BASE } });
