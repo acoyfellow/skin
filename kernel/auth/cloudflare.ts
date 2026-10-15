@@ -373,7 +373,7 @@ export const cloudflareAuth = (
     const chosen: RouteChoice = { accountId, route: routeChoice, model: modelFits || !refreshing ? requestedModel : (models[0]?.id ?? fallbackModel) };
 
     const view = (saved: boolean, error: Option.Option<string>, status = 200) =>
-      html(settingsPage({ accounts, gateways, models, chosen, saved, error, firstTime: fresh.grant.model === null }), status);
+      html(settingsPage({ accounts, gateways, models, chosen, saved, error, firstTime: fresh.grant.model === null, email: fresh.grant.email ?? "" }), status);
 
     if (form === null || refreshing) return view(false, Option.none());
 

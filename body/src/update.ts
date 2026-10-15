@@ -168,6 +168,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 			ok ? { model: modifyFields(model, { copiedKey: () => key }), commands: [ClearCopied({ key })] } : { model: withNote(model, "Copy failed: the browser blocked the clipboard.") },
 		ExpiredCopied: ({ key }) => ({ model: modifyFields(model, { copiedKey: (current) => (current === key ? "" : current) }) }),
 		ClickedNew: () => ({ model, commands: [StartNewConversation()] }),
+		LoadedIdentity: ({ email }) => ({ model: modifyFields(model, { email: () => email }) }),
 		ToggledFilesPanel: () => ({ model: modifyFields(model, { filesPanelOpen: (open) => !open }) }),
 		ClickedFile: ({ path }) =>
 			OpenFile.match(model.openFile, {

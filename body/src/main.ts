@@ -1,7 +1,7 @@
 import { Effect, Option, Schema } from "effect";
 import type { Runtime } from "foldkit";
 import { ConversationName } from "./kernel/protocol";
-import { LoadConversations, ShowConversation } from "./command";
+import { LoadConversations, LoadIdentity, ShowConversation } from "./command";
 import type { Message } from "./message";
 import type { AgentClient } from "./rpc";
 import { loadDraft, NEW_CHAT_DRAFT } from "./composer";
@@ -68,9 +68,10 @@ export const initialModel = ({ name, isNew, now }: Flags): Model => ({
 	confirmingDelete: Option.none(),
 	unseenFrom: Option.none(),
 	activityKey: "",
+	email: "",
 });
 
 export const init: Runtime.ApplicationInit<Model, Message, Flags, AgentClient> = (startup) => ({
 	model: initialModel(startup),
-	commands: startup.isNew ? [LoadConversations()] : [ShowConversation({ name: startup.name }), LoadConversations()],
+	commands: startup.isNew ? [LoadConversations(), LoadIdentity()] : [ShowConversation({ name: startup.name }), LoadConversations(), LoadIdentity()],
 });

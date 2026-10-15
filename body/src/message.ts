@@ -49,6 +49,7 @@ export const Message = defineMessageUnion({
 	UpdatedChatSearch: { value: Schema.String },
 	ConfirmedDeleteConversation: { name: Schema.String },
 	CancelledDeleteConversation: {},
+	LoadedIdentity: { email: Schema.String },
 });
 
 export type Message = typeof Message.Type;

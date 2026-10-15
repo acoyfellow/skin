@@ -47,6 +47,19 @@ export const LoadConversations = Command.define("LoadConversations", {
 	}).pipe(Effect.catch((error) => Effect.succeed(Message.FailedConversations({ reason: reason(error) })))),
 });
 
+const Identity = Schema.Struct({ email: Schema.NullOr(Schema.String) });
+
+const decodeIdentity = Schema.decodeUnknownEffect(Identity);
+
+export const LoadIdentity = Command.define("LoadIdentity", {
+	messages: [Message.LoadedIdentity],
+	execute: Effect.tryPromise(() => fetch("/_kernel/api/me", { credentials: "same-origin" }).then((response) => response.json())).pipe(
+		Effect.flatMap(decodeIdentity),
+		Effect.map(({ email }) => Message.LoadedIdentity({ email: email ?? "" })),
+		Effect.catch(() => Effect.succeed(Message.LoadedIdentity({ email: "" }))),
+	),
+});
+
 export const DeleteConversation = Command.define("DeleteConversation", {
 	args: { name: ConversationName },
 	messages: [Message.DeletedConversation, Message.FailedConversations],

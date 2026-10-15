@@ -85,6 +85,15 @@ const resizeHandle = (h: H, edge: Edge): Html =>
 		[],
 	);
 
+const signOut = (h: H, model: Model): Html =>
+	h.form(
+		[h.Id("sign-out"), h.Method("post"), h.Action("/oauth/logout"), h.Class("flex items-center gap-2")],
+		[
+			...(model.email === "" ? [] : [h.span([h.Id("signed-in-as"), h.Class("hidden max-w-[200px] truncate text-[12px] text-faint lg:inline"), h.Title(`Signed in as ${model.email}`)], [model.email])]),
+			h.button([h.Type("submit"), h.Class("rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised"), h.Title(model.email === "" ? "Sign out" : `Sign out ${model.email}`)], ["Sign out"]),
+		],
+	);
+
 const header = (h: H, model: Model): Html => {
 	const status = statusOf(model);
 
@@ -112,6 +121,7 @@ const header = (h: H, model: Model): Html => {
 							h.span([h.Class("md:hidden")], [button(h, "Files", Message.ToggledFilesPanel(), SECONDARY)]),
 							h.span([h.Class("md:hidden")], [button(h, "New chat", Message.ClickedNew(), SECONDARY)]),
 							h.a([h.Id("model-settings"), h.Href("/settings"), h.Class("rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised")], ["Model"]),
+							signOut(h, model),
 						],
 					),
 				],

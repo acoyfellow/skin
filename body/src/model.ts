@@ -69,6 +69,7 @@ export const Model = Schema.Struct({
 	confirmingDelete: Schema.Option(Schema.String),
 	unseenFrom: Schema.Option(Schema.Number),
 	activityKey: Schema.String,
+	email: Schema.String,
 });
 
 export type Model = typeof Model.Type;

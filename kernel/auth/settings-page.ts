@@ -11,6 +11,7 @@ export type SettingsView = {
 	readonly saved: boolean;
 	readonly error: Option.Option<string>;
 	readonly firstTime: boolean;
+	readonly email: string;
 };
 
 const selected = (yes: boolean) => (yes ? " selected" : "");
@@ -81,6 +82,10 @@ code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
 .notice { display: flex; gap: 8px; margin: 24px 0 0; font-weight: 500; }
 .notice.error { color: var(--error); }
 .notice.saved { color: var(--saved); }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+.top .brand { margin: 0; }
+.account { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.who { color: var(--dim); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: 8px; align-items: center; padding-top: 8px; border-top: 1px solid var(--line); }
 button, a.button { font: inherit; font-weight: 500; height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; cursor: pointer; }
 button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
@@ -100,7 +105,7 @@ export const settingsPage = (view: SettingsView) => `<!doctype html>
 </head>
 <body>
 <main>
-<a class="brand" href="/"><img src="/_kernel/icon.png" alt="" width="24" height="24">skin</a>
+<div class="top"><a class="brand" href="/"><img src="/_kernel/icon.png" alt="" width="24" height="24">skin</a><form class="account" method="post" action="/oauth/logout">${view.email === "" ? "" : `<span class="who" id="signed-in-as">Signed in as ${escapeHtml(view.email)}</span>`}<button type="submit" id="sign-out">Sign out</button></form></div>
 <h1>${view.firstTime ? "Pick where your agent runs" : "Model settings"}</h1>
 <p class="lede">Model calls run on the Cloudflare account you pick, under its limits and its logs. Change this any time.</p>
 ${notice(view)}

@@ -445,3 +445,16 @@ describe("basic: loading", () => {
 		);
 	});
 });
+
+describe("who is signed in", () => {
+	test("the header learns the signed-in email from the kernel", () => {
+		story(
+			update,
+			given(offline),
+			message(Message.LoadedIdentity({ email: "person@example.com" })),
+			model((current) => {
+				expect(current.email).toBe("person@example.com");
+			}),
+		);
+	});
+});
