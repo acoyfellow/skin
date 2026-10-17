@@ -21,7 +21,7 @@
 			"binding": "LOADER"
 		}
 	],
-	"rules": [{ "type": "Text", "globs": ["**/*.css"], "fallthrough": true }, { "type": "Data", "globs": ["**/*.png"], "fallthrough": true }],
+	"rules": [{ "type": "Text", "globs": ["**/*.css"], "fallthrough": true }, { "type": "Data", "globs": ["**/*.png", "**/*.ico", "**/*.jpg", "**/*.webp"], "fallthrough": true }],
 	"durable_objects": {
 		"bindings": [
 			{

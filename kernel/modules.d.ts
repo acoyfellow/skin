@@ -13,3 +13,18 @@ declare module "*.png" {
 	const content: ArrayBuffer;
 	export default content;
 }
+
+declare module "*.ico" {
+	const content: ArrayBuffer;
+	export default content;
+}
+
+declare module "*.jpg" {
+	const content: ArrayBuffer;
+	export default content;
+}
+
+declare module "*.webp" {
+	const content: ArrayBuffer;
+	export default content;
+}

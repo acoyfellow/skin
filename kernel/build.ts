@@ -3,6 +3,7 @@ import { Effect, Predicate, Schema } from "effect";
 import { compile } from "tailwindcss";
 import tailwindIndex from "tailwindcss/index.css";
 import { KERNEL_PREFIX } from "../shared/protocol";
+import { PWA_HEAD } from "./pwa";
 
 export const SERVER_ENTRY = "src/server.ts";
 
@@ -57,10 +58,7 @@ const stylesheet = (css: string, sources: ReadonlyArray<string>) =>
 const pinScript = (generation: number) => `<script>globalThis.__GENERATION__=${generation}</script>`;
 
 const HEAD_TAGS = [
-	`<link rel="manifest" href="/manifest.webmanifest">`,
-	`<meta name="theme-color" content="#171717">`,
-	`<link rel="icon" href="${KERNEL_PREFIX}/icon.png" type="image/png">`,
-	`<link rel="apple-touch-icon" href="${KERNEL_PREFIX}/icon-192.png">`,
+	PWA_HEAD,
 	`<link rel="stylesheet" href="${STYLES_OUTPUT}">`,
 ];
 

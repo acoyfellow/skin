@@ -1,5 +1,6 @@
 import { Option } from "effect";
 import { BODY_SOCKET_PATH, KERNEL_PREFIX, PIN_COOKIE, REPORT_PATH } from "../shared/protocol";
+import { PWA_HEAD, pwaAsset } from "./pwa";
 import HERO from "./assets/hero.png";
 import ICON_192 from "./assets/icon-192.png";
 import ICON_512 from "./assets/icon-512.png";
@@ -158,20 +159,7 @@ self.addEventListener("fetch", (event) => {
 });
 `;
 
-export const MANIFEST = JSON.stringify({
-	name: "skin",
-	short_name: "skin",
-	description: "An app that rewrites its own code while you use it.",
-	start_url: "/",
-	scope: "/",
-	display: "standalone",
-	background_color: "#171717",
-	theme_color: "#171717",
-	icons: [
-		{ src: `${KERNEL_PREFIX}/icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
-		{ src: `${KERNEL_PREFIX}/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any maskable" },
-	],
-});
+
 
 
 export const CONSOLE = `<!doctype html>
@@ -179,7 +167,7 @@ export const CONSOLE = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>skin kernel console</title>
-<link rel="icon" href="${KERNEL_PREFIX}/icon.png" type="image/png">
+${PWA_HEAD}<meta name="robots" content="noindex, nofollow">
 <style>
 body{font:14px/1.5 system-ui,sans-serif;margin:0 auto;max-width:860px;padding:24px;color:#171717}
 h1{font-size:18px;margin:0 0 4px}p{color:#4d4d4d;margin:0 0 16px}
@@ -230,7 +218,6 @@ const respond = (body: BodyInit, type: string, cache = "no-cache") => new Respon
 
 const STATIC = new Map<string, () => Response>([
 	["/sw.js", () => respond(SERVICE_WORKER, "text/javascript; charset=utf-8")],
-	["/manifest.webmanifest", () => respond(MANIFEST, "application/manifest+json")],
 	[`${KERNEL_PREFIX}/guard.js`, () => respond(GUARD, "text/javascript; charset=utf-8")],
 	[`${KERNEL_PREFIX}/icon-192.png`, () => respond(ICON_192, "image/png", "public, max-age=86400")],
 	[`${KERNEL_PREFIX}/icon-512.png`, () => respond(ICON_512, "image/png", "public, max-age=86400")],
@@ -241,9 +228,9 @@ const STATIC = new Map<string, () => Response>([
 	[`${KERNEL_PREFIX}/unpin`, () => new Response(null, { status: 302, headers: { location: "/", "set-cookie": `${PIN_COOKIE}=; Path=/; Max-Age=0; Secure; SameSite=Lax` } })],
 ]);
 
-const PUBLIC_ASSETS = new Set([`${KERNEL_PREFIX}/icon.png`, `${KERNEL_PREFIX}/icon-192.png`, `${KERNEL_PREFIX}/icon-512.png`, `${KERNEL_PREFIX}/hero.png`]);
+const PUBLIC_ASSETS = new Set(["/sw.js", `${KERNEL_PREFIX}/icon.png`, `${KERNEL_PREFIX}/icon-192.png`, `${KERNEL_PREFIX}/icon-512.png`, `${KERNEL_PREFIX}/hero.png`]);
 
-export const publicAsset = (pathname: string): Option.Option<Response> => (PUBLIC_ASSETS.has(pathname) ? Option.fromNullishOr(STATIC.get(pathname)?.()) : Option.none());
+export const publicAsset = (pathname: string): Option.Option<Response> => Option.orElse(pwaAsset(pathname), () => (PUBLIC_ASSETS.has(pathname) ? Option.fromNullishOr(STATIC.get(pathname)?.()) : Option.none()));
 
 const PIN_ROUTE = /^\/_kernel\/pin\/(\d+)$/;
 
