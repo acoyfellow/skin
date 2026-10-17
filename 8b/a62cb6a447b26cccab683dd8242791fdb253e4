@@ -1,0 +1,23 @@
+README.md
+  s_1edf569f022c1c::t_a19e4de3d97ff9 5,7,9,11-18,23-31,34-40,42,44-49,53,56-67,70-77,85-86,90,92,94,96-99,101,103,105-110,112,116-121,124
+kernel/auth/sign-in-page.ts
+  s_1edf569f022c1c::t_3564dec29e7b98 2,24,30,44
+scripts/pwa-assets.mjs
+  s_1edf569f022c1c::t_0f6d0c0c5d3ba2 91-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8ba62cb6a447b26cccab683dd8242791fdb253e4",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
