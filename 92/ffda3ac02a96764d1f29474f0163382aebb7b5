@@ -1,0 +1,43 @@
+kernel/auth/sign-in-page.ts
+  s_1edf569f022c1c::t_3b3e3133018fe1 2,45-48,50-51,80,89
+kernel/build.ts
+  s_1edf569f022c1c::t_32e806d1225757 6,61
+kernel/index.ts
+  s_1edf569f022c1c::t_6b9f0448827b43 27,246-275,278,280-282,284-286,355-356
+kernel/modules.d.ts
+  s_1edf569f022c1c::t_6e0c7576ae1fe5 16-30
+kernel/pwa.ts
+  s_1edf569f022c1c::t_8a4c352e6bfd3d 1-171
+kernel/shell.ts
+  s_1edf569f022c1c::t_c96328a01938d3 3,162,170,231,233
+package-lock.json
+  s_1edf569f022c1c::t_ec91b5306d443f 27,1113-1115,1126,1132,1136-1138,1149,1155,1178-1194,1196-1198,1213-1215,1230-1232,1237-1239,1250-1252,1257-1259,1270-1272,1277-1279,1290-1292,1297-1299,1310-1312,1317-1319,1330-1332,1337-1339,1350-1352,1357-1359,1370-1372,1377-1379,1390-1392,1397-1399,1406,1412,1416-1418,1423-1425,1432,1438,1442-1444,1449-1451,1458,1464,1468-1470,1475-1477,1484,1490,1494-1496,1501-1503,1510,1516,1520-1522,1527-1529,1536,1542,1546-1548,1553-1555,1562,1568,1572-1574,1579-1581,1588,1594,1598-1603,1608,1611,1637,1639-1657,1668,1675-1677,1688,1695-1697,1708,3865-3871,3873-3877,3879,3881-3882,3884-3885,3888-3908,3911-3917,3919-3922,3924-3925,3928-4484,4900-4902,4904,4907,4909,4912,4918-4941
+package.json
+  s_1edf569f022c1c::t_fdbc3bc9dbde9d 26-27,45
+scripts/pwa-assets.mjs
+  s_1edf569f022c1c::t_66dc6de31f63d1 1-97
+scripts/pwa-audit.mjs
+  s_1edf569f022c1c::t_6a46fd855fd176 1-119
+test/local/wrangler.jsonc
+  s_1edf569f022c1c::t_518a1b9cebd1d4 24
+test/revival/wrangler.jsonc
+  s_1edf569f022c1c::t_a48dfc7f5cef37 8
+wrangler.jsonc
+  s_1edf569f022c1c::t_9e344d5aed780a 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "92ffda3ac02a96764d1f29474f0163382aebb7b5",
+  "prompts": {},
+  "sessions": {
+    "s_1edf569f022c1c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a0df3d-f9fc-74ea-ae36-1d244e193f8b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
