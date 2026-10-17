@@ -88,7 +88,17 @@ out(`${ASSETS}/hero-320.webp`, await sharp(HERO).resize(320, 320).webp({ quality
 out(
 	`${ASSETS}/og.jpg`,
 	await sharp({ create: { width: 1200, height: 630, channels: 4, background: { r: 245, g: 240, b: 255, alpha: 1 } } })
-		.composite([{ input: await sharp(HERO).resize(630, 630).png().toBuffer(), gravity: "east" }, { input: await icon(220).png().toBuffer(), left: 120, top: 205 }])
+		.composite([
+			{ input: await sharp(HERO).resize(630, 630).png().toBuffer(), gravity: "east" },
+			{ input: await icon(96).png().toBuffer(), left: 72, top: 96 },
+			{
+				input: Buffer.from(
+					`<svg xmlns="http://www.w3.org/2000/svg" width="520" height="630"><style>text{font-family:Helvetica,Arial,sans-serif;fill:#171717}</style><text x="0" y="318" font-size="64" font-weight="700" letter-spacing="-2">An app you</text><text x="0" y="392" font-size="64" font-weight="700" letter-spacing="-2">change by</text><text x="0" y="466" font-size="64" font-weight="700" letter-spacing="-2" style="fill:#7c3aed">asking.</text><text x="0" y="534" font-size="26" style="fill:#4d4d4d">skin.coey.dev</text></svg>`,
+				),
+				left: 72,
+				top: 0,
+			},
+		])
 		.flatten({ background: "#f5f0ff" })
 		.jpeg({ quality: 84, mozjpeg: true })
 		.toBuffer(),

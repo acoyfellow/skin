@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { PWA_HEAD, socialHead } from "../pwa";
+import { APP_DESCRIPTION, PWA_HEAD, socialHead } from "../pwa";
 
 const escapeHtml = (value: string) =>
   value
@@ -21,13 +21,13 @@ const POINTS: ReadonlyArray<Point> = [
   },
   {
     title: "Your inference, your account",
-    body: "Every model call runs on Workers AI in the Cloudflare account you pick, under your limits and your logs.",
+    body: "Every model call runs on the Cloudflare account you pick, through Workers AI or one of your own AI Gateways. skin never pays for your tokens, and never sees a provider key.",
   },
 ];
 
 const STEPS: ReadonlyArray<string> = [
   "Pick an account on Cloudflare&rsquo;s consent screen.",
-  "skin runs its agent on that account&rsquo;s Workers AI.",
+  "Choose a model: Workers AI, or Claude and GPT through your own AI Gateway.",
   "Your app and your chats stay yours. Sign out revokes access.",
 ];
 
@@ -41,7 +41,7 @@ export const signInPage = (
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>skin · an app you change by asking</title>
-<meta name="description" content="skin is a personal app with an agent inside. Ask for a change and it rewrites itself, and only goes live if it works.">
+<meta name="description" content="${APP_DESCRIPTION}">
 <meta name="robots" content="index, follow">
 ${socialHead(origin)}
 ${PWA_HEAD}
