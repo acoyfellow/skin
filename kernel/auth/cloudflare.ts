@@ -1,7 +1,6 @@
 import { Option, Predicate, Result, Schema } from "effect";
 import { modelOptionsFor, modelOrDefault } from "./catalog";
 import { DIRECT_ROUTE, kindOfRoute, type RouteChoice, routeValue, validateChoice } from "./route";
-import { settingsPage } from "./settings-page";
 import { type Directory, DIRECTORY_NAME, type Grant } from "./directory";
 import {
   accountsOf,
@@ -282,7 +281,7 @@ export const cloudflareAuth = (
       });
       await directory().openSession(session.id, owner, session.expires);
 
-      return redirect(kept?.model === null || kept === null ? SETTINGS_PATH : "/", [
+      return redirect(kept?.model === null || kept === null ? "/?settings=open" : "/", [
         clearCookie(jar, jar.flow),
         cookie(
           jar,
@@ -339,7 +338,9 @@ export const cloudflareAuth = (
   const settings = async (request: Request, fallbackModel: string): Promise<Response> => {
     const session = await sessionOf(request);
 
-    if (session === null) return redirect("/");
+    const signedOut = () => Response.json({ error: "Sign in with Cloudflare at /oauth/login" }, { status: 401 });
+
+    if (session === null) return signedOut();
 
     const fresh = await freshToken(env, session.owner, send).catch((cause) => {
       if (cause instanceof SignedOut) return null;
@@ -347,7 +348,7 @@ export const cloudflareAuth = (
       throw cause;
     });
 
-    if (fresh === null) return redirect("/");
+    if (fresh === null) return signedOut();
 
     const accounts = await accountsOf(fresh.token, send);
     const form = request.method === "POST" ? await request.formData() : null;
@@ -373,7 +374,10 @@ export const cloudflareAuth = (
     const chosen: RouteChoice = { accountId, route: routeChoice, model: modelFits || !refreshing ? requestedModel : (models[0]?.id ?? fallbackModel) };
 
     const view = (saved: boolean, error: Option.Option<string>, status = 200) =>
-      html(settingsPage({ accounts, gateways, models, chosen, saved, error, firstTime: fresh.grant.model === null, email: fresh.grant.email ?? "" }), status);
+      Response.json(
+        { email: fresh.grant.email ?? "", accounts, gateways, models, chosen, saved, error: Option.getOrNull(error), firstTime: fresh.grant.model === null },
+        { status, headers: { "cache-control": "no-store" } },
+      );
 
     if (form === null || refreshing) return view(false, Option.none());
 

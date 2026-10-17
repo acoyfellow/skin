@@ -48,14 +48,12 @@ const step = async (name, run) => {
 const saveModel = (model) =>
 	evaluate(
 		[
-			"const page=await (await fetch('/settings')).text();",
-			"const doc=new DOMParser().parseFromString(page,'text/html');",
+			"const now=await (await fetch('/_kernel/api/settings')).json();",
 			"const f=new FormData();",
-			"f.set('account',doc.querySelector('select[name=account]').value);",
-			"f.set('route',doc.querySelector('input[name=route]:checked').value);",
+			"f.set('account',now.chosen.accountId);f.set('route',now.chosen.route);",
 			`f.set('model',${JSON.stringify(model)});f.set('intent','save');`,
-			"const t=await (await fetch('/settings',{method:'POST',body:f})).text();",
-			"if(!t.includes('notice saved'))throw new Error('settings refused that model on the saved route');",
+			"const t=await (await fetch('/_kernel/api/settings',{method:'POST',body:f})).json();",
+			"if(!t.saved)throw new Error(t.error??'settings refused that model on the saved route');",
 			"return 'saved';",
 		].join(""),
 	);

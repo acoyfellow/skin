@@ -1,3 +1,4 @@
+import { COMMAND_CENTER_PATH } from "./command-center";
 import { createApp, type CreateAppResult, InMemoryFileSystem } from "@cloudflare/worker-bundler";
 import { Effect, Predicate, Schema } from "effect";
 import { compile } from "tailwindcss";
@@ -68,7 +69,7 @@ const STYLE_LINK = /<link[^>]*href=["']\/src\/[^"']*["'][^>]*>/gi;
 
 export const pageFor = (html: string, generation: number): string => {
 	const stripped = html.replace(MODULE_SCRIPT, "").replace(STYLE_LINK, "");
-	const head = [pinScript(generation), `<script src="${KERNEL_PREFIX}/guard.js"></script>`, ...HEAD_TAGS].join("");
+	const head = [pinScript(generation), `<script src="${KERNEL_PREFIX}/guard.js"></script>`, `<script src="${COMMAND_CENTER_PATH}" defer></script>`, ...HEAD_TAGS].join("");
 	const tail = `<script type="module" src="${CLIENT_OUTPUT}?g=${generation}"></script>`;
 	const withHead = stripped.includes("</head>") ? stripped.replace("</head>", `${head}</head>`) : `${head}${stripped}`;
 

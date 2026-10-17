@@ -29,6 +29,7 @@ import { kernelAsset, publicAsset } from "./shell";
 import { agentName, devSubject, type Person, type UserId, userIdOf } from "./identity";
 import { BodyStore } from "./store";
 import { type CloudflareAuthEnv, cloudflareAuth, SETTINGS_PATH } from "./auth/cloudflare";
+import { COMMAND_SETTINGS_PATH } from "./command-center";
 import { checkRoute } from "./auth/route-check";
 import { Directory } from "./auth/directory";
 
@@ -288,7 +289,9 @@ const serve = async (request: Request, env: Env, person: Person): Promise<Respon
 		if (new URL(request.url).pathname === `${KERNEL_PREFIX}/api/route-check` && request.method === "POST" && isSameOrigin(request))
 			return Response.json(await checkRoute(env, admission.person.subject));
 
-		if (new URL(request.url).pathname === SETTINGS_PATH) return cloudflareAuth(env).settings(request, env.MODEL);
+		if (new URL(request.url).pathname === COMMAND_SETTINGS_PATH) return cloudflareAuth(env).settings(request, env.MODEL);
+
+		if (new URL(request.url).pathname === SETTINGS_PATH) return Response.redirect(new URL("/?settings=open", request.url).toString(), 302);
 
 		const { user } = admission.person;
 

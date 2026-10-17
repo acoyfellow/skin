@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const header = readFileSync("body/src/view/index.ts", "utf8");
 
-const settings = readFileSync("kernel/auth/settings-page.ts", "utf8");
+const settings = readFileSync("kernel/command-center.ts", "utf8");
 
 const kernel = readFileSync("kernel/auth/cloudflare.ts", "utf8");
 
@@ -13,8 +13,8 @@ describe("signing out", () => {
 		expect(header).toContain('["Sign out"]');
 	});
 
-	it("is a POST form to /oauth/logout on the settings page", () => {
-		expect(settings).toContain('<form class="account" method="post" action="/oauth/logout">');
+	it("is a POST form to /oauth/logout in the Cmd+K command center", () => {
+		expect(settings).toContain('el("form", { method: "post", action: "/oauth/logout"');
 	});
 
 	it("ends the session on the server and revokes the grant", () => {

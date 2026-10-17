@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import { COMMAND_CENTER, COMMAND_CENTER_PATH } from "./command-center";
 import { BODY_SOCKET_PATH, KERNEL_PREFIX, PIN_COOKIE, REPORT_PATH } from "../shared/protocol";
 import { PWA_HEAD, pwaAsset } from "./pwa";
 import HERO from "./assets/hero.png";
@@ -129,7 +130,7 @@ export const GUARD = `(() => {
 
 export const SERVICE_WORKER = `const CACHE = "skin-shell-v2";
 
-const PASS_THROUGH = ["/oauth/", "/settings", "${KERNEL_PREFIX}/api/"];
+const PASS_THROUGH = ["/oauth/", "${KERNEL_PREFIX}/api/"];
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -179,7 +180,7 @@ pre{white-space:pre-wrap;margin:4px 0 0;font-size:12px;color:#c41a1a}
 <h1>Kernel console</h1>
 <p id="who">&nbsp;</p>
 <p>The kernel cannot be edited by the agent. Use this page if the app itself stops working: roll back to any generation that passed the gate, or open one to look at it.</p>
-<p><a class="button" href="/">Open the live app</a> <a class="button" href="${KERNEL_PREFIX}/unpin">Follow live</a> <a class="button" href="/settings">Model settings</a> <button id="reseed">Reset my app to the latest original</button></p>
+<p><a class="button" href="/">Open the live app</a> <a class="button" href="${KERNEL_PREFIX}/unpin">Follow live</a> <a class="button" href="/?settings=open">Model settings</a> <button id="reseed">Reset my app to the latest original</button></p>
 <table><thead><tr><th>#</th><th>Change</th><th>Status</th><th>Browser</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="5">Loading…</td></tr></tbody></table>
 <script>
 const rows = document.getElementById("rows");
@@ -219,6 +220,7 @@ const respond = (body: BodyInit, type: string, cache = "no-cache") => new Respon
 const STATIC = new Map<string, () => Response>([
 	["/sw.js", () => respond(SERVICE_WORKER, "text/javascript; charset=utf-8")],
 	[`${KERNEL_PREFIX}/guard.js`, () => respond(GUARD, "text/javascript; charset=utf-8")],
+	[COMMAND_CENTER_PATH, () => respond(COMMAND_CENTER, "text/javascript; charset=utf-8")],
 	[`${KERNEL_PREFIX}/icon-192.png`, () => respond(ICON_192, "image/png", "public, max-age=86400")],
 	[`${KERNEL_PREFIX}/icon-512.png`, () => respond(ICON_512, "image/png", "public, max-age=86400")],
 	[`${KERNEL_PREFIX}/icon.png`, () => respond(ICON_512, "image/png", "public, max-age=86400")],
