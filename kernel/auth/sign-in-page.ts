@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { APP_DESCRIPTION, PWA_HEAD, socialHead } from "../pwa";
+import { APP_DESCRIPTION, APP_TITLE, FAQ, PWA_HEAD, socialHead } from "../pwa";
 
 const escapeHtml = (value: string) =>
   value
@@ -40,7 +40,8 @@ export const signInPage = (
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>skin · an app you change by asking</title>
+<title>${APP_TITLE}</title>
+<meta name="author" content="Jordan Coeyman">
 <meta name="description" content="${APP_DESCRIPTION}">
 <meta name="robots" content="index, follow">
 ${socialHead(origin)}
@@ -68,8 +69,14 @@ h1 span { color: var(--life); }
 .error { border: 1px solid var(--bad); background: var(--bad-soft); color: var(--bad); padding: 10px 14px; border-radius: 10px; margin: 0 0 20px; }
 ul.points { list-style: none; padding: 0; margin: 0; display: grid; gap: 20px; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); padding-top: 28px; }
 @media (max-width: 760px) { ul.points { grid-template-columns: 1fr; } }
-ul.points strong { display: block; margin-bottom: 4px; }
+ul.points h3 { font-size: 15px; margin: 0 0 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 ul.points span { color: var(--dim); font-size: 14px; }
+section.faq h2 { font-size: 20px; letter-spacing: -0.01em; margin: 0 0 12px; }
+section.faq dl { margin: 0; display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 760px) { section.faq dl { grid-template-columns: 1fr; } }
+section.faq dt { font-weight: 600; margin-bottom: 4px; }
+section.faq dd { margin: 0; color: var(--dim); font-size: 14px; }
 ol.steps { color: var(--dim); font-size: 14px; padding-left: 20px; margin: 18px 0 0; }
 footer { color: var(--faint); font-size: 13px; }
 footer a { color: inherit; }
@@ -77,7 +84,7 @@ footer a { color: inherit; }
 </head>
 <body>
 <main>
-<header><img src="/_kernel/icon-64.png" alt="" width="28" height="28">skin</header>
+<header><a href="/" aria-label="skin home" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none"><img src="/_kernel/icon-64.png" alt="" width="28" height="28">skin</a></header>
 <section class="hero">
 <div>
 <h1>An app you change <span>by asking.</span></h1>
@@ -88,8 +95,9 @@ ${Option.match(error, { onNone: () => "", onSome: (message) => `<p class="error"
 </div>
 <img class="art" src="/_kernel/hero-640.webp" srcset="/_kernel/hero-320.webp 320w, /_kernel/hero-640.webp 640w" sizes="(max-width: 760px) 280px, 320px" alt="Soft violet membranes, the skin artwork" width="320" height="320" fetchpriority="high" decoding="async">
 </section>
-<ul class="points">${POINTS.map(({ title, body }) => `<li><strong>${title}</strong><span>${body}</span></li>`).join("")}</ul>
-<footer>Chat held to <a href="https://github.com/acoyfellow/basic">Basic</a>, the conformance suite for agent chat.</footer>
+<section aria-labelledby="how"><h2 id="how" class="sr">How skin works</h2><ul class="points">${POINTS.map(({ title, body }) => `<li><h3>${title}</h3><span>${body}</span></li>`).join("")}</ul></section>
+<section class="faq" aria-labelledby="faq"><h2 id="faq">Questions</h2><dl>${FAQ.map(({ question, answer }) => `<div><dt>${question}</dt><dd>${answer}</dd></div>`).join("")}</dl></section>
+<footer>Made by <a href="https://coey.dev" rel="author">Jordan Coeyman</a> on Cloudflare Workers. Chat held to <a href="https://github.com/acoyfellow/basic">Basic</a>, the conformance suite for agent chat.</footer>
 </main>
 </body>
 </html>`;

@@ -39,6 +39,12 @@ if (PUBLIC) {
 		["twitter card", /twitter:card" content="summary_large_image"/],
 		["JSON-LD", /application\/ld\+json/],
 		["robots meta allows indexing", /<meta name="robots" content="index/],
+		["one h1", /^(?:(?!<h1)[\s\S])*<h1[\s\S]*?<\/h1>(?:(?!<h1)[\s\S])*$/],
+		["h2 sections", /<h2/],
+		["FAQ structured data", /"FAQPage"/],
+		["author", /<meta name="author"/],
+		["lang attribute", /<html lang="en">/],
+		["hero image has alt and size", /<img class="art"[^>]*alt="[^"]+"[^>]*width="\d+" height="\d+"/],
 	])
 		check(`launch page ${label}`, pattern.test(html), "");
 }
@@ -55,12 +61,13 @@ for (const [label, pattern] of [
 
 const splashes = [...html.matchAll(/rel="apple-touch-startup-image" media="([^"]+)" href="([^"]+)"/g)];
 
-check("iOS startup images linked", splashes.length >= 10, `${splashes.length} linked`);
+check("iOS startup images linked, iPad landscape too", splashes.length >= 16 && splashes.some(([, media]) => media.includes("landscape")), `${splashes.length} linked`);
 
 for (const [, media, href] of splashes) {
 	const image = await get(href);
 	const ratio = Number(/pixel-ratio: (\d)/.exec(media)?.[1]);
-	const [width, height] = [/device-width: (\d+)px/, /device-height: (\d+)px/].map((pattern) => Number(pattern.exec(media)?.[1]) * ratio);
+	const [shortSide, longSide] = [/device-width: (\d+)px/, /device-height: (\d+)px/].map((pattern) => Number(pattern.exec(media)?.[1]) * ratio);
+	const [width, height] = media.includes("landscape") ? [longSide, shortSide] : [shortSide, longSide];
 
 	check(`splash ${href}`, image.status === 200 && pngSize(image.body) === `${width}x${height}`, `${image.status} ${pngSize(image.body)}, expected ${width}x${height}`);
 }
@@ -74,6 +81,10 @@ check("manifest served as JSON without signing in", manifest !== undefined, `${m
 if (manifest !== undefined) {
 	for (const field of ["id", "name", "short_name", "description", "start_url", "scope", "display", "background_color", "theme_color", "icons", "screenshots"]) check(`manifest ${field}`, manifest[field] !== undefined, JSON.stringify(manifest[field] ?? null).slice(0, 60));
 
+	for (const size of ["48x48", "72x72", "96x96", "128x128", "144x144", "152x152", "384x384"]) check(`manifest icon ${size}`, manifest.icons.some((icon) => icon.sizes === size), "");
+	check("manifest has 192 and 512 maskable icons", ["192x192", "512x512"].every((size) => manifest.icons.some((icon) => icon.sizes === size && icon.purpose === "maskable")), "");
+	check("manifest has shortcuts", (manifest.shortcuts ?? []).length >= 2, `${(manifest.shortcuts ?? []).length}`);
+	check("manifest launch_handler", manifest.launch_handler !== undefined, "");
 	check("manifest has a maskable icon", manifest.icons.some((icon) => icon.purpose?.includes("maskable")), "");
 	check("manifest has 192 and 512 icons", ["192x192", "512x512"].every((size) => manifest.icons.some((icon) => icon.sizes === size)), "");
 	check("manifest has narrow and wide screenshots", ["narrow", "wide"].every((form) => manifest.screenshots.some((shot) => shot.form_factor === form)), "");

@@ -104,4 +104,13 @@ out(
 		.toBuffer(),
 );
 
+for (const size of [48, 72, 96, 128, 144, 152, 384]) out(`${ASSETS}/icon-${size}.png`, await icon(size).png({ compressionLevel: 9 }).toBuffer());
+
+out(`${ASSETS}/icon-maskable-192.png`, await (await padded(192, 154)).toBuffer());
+
+for (const size of SPLASH.filter((each) => each.deviceWidth >= 768)) {
+	const landscape = { width: size.height, height: size.width };
+	out(`${ASSETS}/splash/${landscape.width}x${landscape.height}.png`, await (await splash(landscape)).toBuffer());
+}
+
 for (const size of SPLASH) out(`${ASSETS}/splash/${size.width}x${size.height}.png`, await (await splash(size)).toBuffer());
