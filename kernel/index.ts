@@ -22,6 +22,8 @@ import {
 	SnapshotJson,
 } from "../shared/protocol";
 import { Agent, type AgentEnv } from "./agent";
+import { CodeTools } from "./code-tools";
+import { TOOL_LIST, TOOLS_PATH } from "./tool-list";
 import { Body } from "./body";
 import { Builder } from "./builder";
 import { harden, robots, sitemap } from "./pwa";
@@ -33,7 +35,7 @@ import { COMMAND_SETTINGS_PATH } from "./command-center";
 import { checkRoute } from "./auth/route-check";
 import { Directory } from "./auth/directory";
 
-export { Agent, Body, Builder, BodyStore, Directory };
+export { Agent, Body, Builder, BodyStore, CodeTools, Directory };
 
 type Env = AgentEnv &
 	CloudflareAuthEnv & {
@@ -262,6 +264,8 @@ const route = async (request: Request, env: Env): Promise<{ readonly response: R
 	if (url.pathname === "/robots.txt") return { response: robots(url.origin), indexable: true };
 
 	if (url.pathname === "/sitemap.xml") return { response: sitemap(url.origin), indexable: true };
+
+	if (url.pathname === TOOLS_PATH) return { response: Response.json(TOOL_LIST, { headers: { "cache-control": "no-store" } }), indexable: false };
 
 	const open = publicAsset(url.pathname);
 

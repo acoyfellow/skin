@@ -6,6 +6,7 @@ import { Context, Effect, Layer, Option, Queue, Schema, Stream } from "effect";
 import { type Block, BodyFrame, type ShipReport } from "../shared/protocol";
 import { type BodyUnavailable, Repo, type RepoFiles } from "./files";
 import { signedOutProvider } from "./model";
+import { clampResults, describeResults, type WebTools } from "./web";
 import { Broadcast } from "./services";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import { decodePiLiveState, decodePiMessages, type PiLiveState, toBlocks } from "./view";
@@ -20,6 +21,8 @@ const PROMPT = [
 	"Start by reading AGENTS.md with read_file. It explains the layout and the rules.",
 	"write_file and delete_file change the draft only. ship builds the draft, runs the gate, and makes it live only if every check passes. If ship rejects it, read the errors, fix the files, and ship again.",
 	"rollback makes an earlier generation live again.",
+	"web_search finds public pages and web_fetch reads one as text. Use them for docs, APIs, and anything you are unsure of; cite the URLs you used.",
+	"codemode runs a short JavaScript program in a sealed isolate with no network. Inside it, await tools.web_search({ query }), tools.web_fetch({ url }), tools.list_files(), and tools.read_file({ path }). Use it to batch or filter several calls, then return a small result.",
 	"Do the work instead of describing it. When finished, reply in one or two short sentences that say which generation is live.",
 ].join("\n");
 
@@ -43,10 +46,11 @@ const describeReport = (report: ShipReport): string =>
 		...report.checks.map((check) => `- ${check.ok ? "pass" : "FAIL"} ${check.name} (${check.ms} ms)${check.ok ? "" : `\n${check.detail}`}`),
 	].join("\n");
 
-const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Context<never>) => {
+const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Context<never>, tooling: Tooling) => {
 	const run = <A>(effect: Effect.Effect<A, ToolFailure>) => Effect.runPromiseWith(context)(effect.pipe(Effect.catch((failure) => Effect.fail(new Error(explain(failure))))));
 
 	return [
+		...toolingTools(tooling),
 		defineTool({
 			name: "list_files",
 			description: "List every file in the draft of your body.",
@@ -96,6 +100,39 @@ const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Conte
 	];
 };
 
+export type Tooling = { readonly web: WebTools; readonly runCode: (code: string) => Promise<string> };
+
+const failed = (cause: unknown) => text(cause instanceof Error ? cause.message : String(cause));
+
+export const toolingTools = (tooling: Tooling) => [
+	defineTool({
+		name: "web_search",
+		description: "Search the public web with Cloudflare Web Search, on the signed-in person's own account. Returns titles, URLs, and snippets. Discovery only: read a page with web_fetch.",
+		parameters: Type.Object({ query: Type.String({ minLength: 1, maxLength: 512 }), maxResults: Type.Optional(Type.Number({ minimum: 1, maximum: 10 })) }),
+		replay: "safe",
+		executionMode: "parallel",
+		execute: (args) => tooling.web.search(args.query, clampResults(args.maxResults)).then((results) => text(describeResults(results)), failed),
+	}),
+	defineTool({
+		name: "web_fetch",
+		description: "Fetch a public http or https URL and return its text. HTML is reduced to plain text. Use it to read docs and search results.",
+		parameters: Type.Object({ url: Type.String() }),
+		replay: "safe",
+		executionMode: "parallel",
+		execute: (args) => tooling.web.fetchText(args.url).then(text, failed),
+	}),
+	defineTool({
+		name: "codemode",
+		description: "Run a JavaScript async function body in a sealed Worker isolate with no network. Await tools.web_search({ query, maxResults }), tools.web_fetch({ url }), tools.list_files(), tools.read_file({ path }); each resolves to text. console.log and the returned value come back. Use it to chain or filter several calls in one step.",
+		parameters: Type.Object({ code: Type.String({ minLength: 1, maxLength: 20000 }) }),
+		replay: "safe",
+		executionMode: "sequential",
+		execute: (args) => tooling.runCode(args.code).then(text, failed),
+	}),
+];
+
+export class Tools extends Context.Service<Tools, Tooling>()("skin/Tools") {}
+
 type Agentic = {
 	readonly repo: RepoFiles;
 	readonly live: Stream.Stream<Option.Option<PiLiveState>>;
@@ -133,7 +170,7 @@ export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {
 
 				const registry = createRegistry();
 
-				registry.install(defineExtension({ name: "skin", sections: [section("preamble", () => PROMPT, { tag: false })], tools: tools(repo, bodyChanged, yield* Effect.context<never>()) }));
+				registry.install(defineExtension({ name: "skin", sections: [section("preamble", () => PROMPT, { tag: false })], tools: tools(repo, bodyChanged, yield* Effect.context<never>(), yield* Tools) }));
 
 				const harness = yield* Effect.acquireRelease(
 					pi("open", async () => Harness.open(await openDurableObjectSqliteStorage(storage), { models, registry }, CONTEXT)),
