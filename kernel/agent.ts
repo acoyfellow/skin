@@ -6,6 +6,7 @@ import type { Body } from "./body";
 import { Repo } from "./files";
 import { ownerOfAgent, UserId } from "./identity";
 import { type HarnessFailed, Model, Pi, Tools } from "./harness";
+import { DIRECTORY_NAME } from "./auth/directory";
 import { webFor } from "./code-tools";
 import { CODE_TIMEOUT, codeModule, codeOutcomeOf, describeCodeOutcome, SIGNED_OUT_TOOLS, signedOutWeb } from "./web";
 import { CLOUDFLARE_OWNER_PREFIX, type CloudflareAuthEnv, freshToken } from "./auth/cloudflare";
@@ -45,7 +46,7 @@ const encodeStop = Schema.encodeSync(StopOutcomeJson);
 
 const encodeRead = Schema.encodeSync(ReadOutcomeJson);
 
-export const conversationLayer = (ctx: DurableObjectState, model: Layer.Layer<Model>, files: Layer.Layer<Repo>, tooling: Layer.Layer<Tools> = Layer.succeed(Tools, { web: signedOutWeb, runCode: async () => SIGNED_OUT_TOOLS })) => {
+export const conversationLayer = (ctx: DurableObjectState, model: Layer.Layer<Model>, files: Layer.Layer<Repo>, tooling: Layer.Layer<Tools> = Layer.succeed(Tools, { web: signedOutWeb, runCode: async () => SIGNED_OUT_TOOLS, counted: () => undefined })) => {
 	const object = Layer.mergeAll(DurableObjectContext.layer(ctx), Store.layer(ctx.storage));
 	const broadcast = Broadcast.layer.pipe(Layer.provideMerge(object));
 	const pi = Pi.layer(ctx.storage).pipe(Layer.provide(files), Layer.provide(tooling), Layer.provideMerge(model), Layer.provideMerge(broadcast));
@@ -70,7 +71,7 @@ const signedInOwner = (ctx: DurableObjectState): string | null => {
 const toolsFor = (ctx: DurableObjectState, env: AgentEnv, user: UserId): Layer.Layer<Tools> => {
 	const owner = signedInOwner(ctx);
 
-	if (owner === null) return Layer.succeed(Tools, { web: signedOutWeb, runCode: async () => SIGNED_OUT_TOOLS });
+	if (owner === null) return Layer.succeed(Tools, { web: signedOutWeb, runCode: async () => SIGNED_OUT_TOOLS, counted: () => undefined });
 
 	const runCode = async (code: string): Promise<string> => {
 		const isolate = env.LOADER.get(`codemode-${crypto.randomUUID()}`, () => ({
@@ -88,7 +89,11 @@ const toolsFor = (ctx: DurableObjectState, env: AgentEnv, user: UserId): Layer.L
 		return describeCodeOutcome(codeOutcomeOf(await response.text()));
 	};
 
-	return Layer.succeed(Tools, { web: webFor(env, owner, fetch), runCode });
+	const counted = (tool: string) => {
+		ctx.waitUntil(env.DIRECTORY.getByName(DIRECTORY_NAME).record(user, "tool_call", tool).catch(() => undefined));
+	};
+
+	return Layer.succeed(Tools, { web: webFor(env, owner, fetch), runCode, counted });
 };
 
 const layerFor = (ctx: DurableObjectState, env: AgentEnv) => {

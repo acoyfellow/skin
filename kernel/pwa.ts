@@ -171,14 +171,14 @@ const ROUTES = new Map<string, () => Response>([
 export const pwaAsset = (pathname: string): Option.Option<Response> => Option.fromNullishOr(ROUTES.get(pathname)?.());
 
 export const robots = (origin: string): Response =>
-	new Response(["User-agent: *", "Allow: /$", "Allow: /_kernel/", "Disallow: /", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n"), {
+	new Response(["User-agent: *", "Allow: /$", "Allow: /stats$", "Allow: /_kernel/", "Disallow: /", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n"), {
 		headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
 	});
 
 const SITE_UPDATED = "2026-10-17";
 
 export const sitemap = (origin: string): Response =>
-	new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${origin}/</loc><lastmod>${SITE_UPDATED}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url></urlset>\n`, {
+	new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${origin}/</loc><lastmod>${SITE_UPDATED}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url><url><loc>${origin}/stats</loc><changefreq>daily</changefreq><priority>0.5</priority></url></urlset>\n`, {
 		headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
 	});
 

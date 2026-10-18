@@ -24,14 +24,18 @@ import { assemble, BuildFailed, type BuildPart, type Built, type PartOutput } fr
 import { type Builder, PartOutcomeJson } from "./builder";
 import { cleanPath, InvalidPath } from "./paths";
 import { KERNEL_FILES, SEED } from "./seed";
+import { type Directory, DIRECTORY_NAME } from "./auth/directory";
+import type { UsageEvent } from "./stats";
 
-export type BodyEnv = { readonly LOADER: WorkerLoader; readonly BUILDER: DurableObjectNamespace<Builder> };
+export type BodyEnv = { readonly LOADER: WorkerLoader; readonly BUILDER: DurableObjectNamespace<Builder>; readonly DIRECTORY: DurableObjectNamespace<Directory> };
 
 const MAX_FILE_BYTES = 256 * 1024;
 
 const MAX_FILES = 400;
 
 const CHUNK = 900_000;
+
+const USAGE_BACKFILLED = "usage-backfilled";
 
 const CHECK_TIMEOUT_MS = 10_000;
 
@@ -233,6 +237,10 @@ export class Body extends DurableObject<BodyEnv> {
 		return this.ctx.id.name ?? "unnamed";
 	}
 
+	private count(event: UsageEvent): void {
+		this.ctx.waitUntil(this.env.DIRECTORY.getByName(DIRECTORY_NAME).record(this.owner(), event).catch(() => undefined));
+	}
+
 	private sql(query: string, ...bindings: ReadonlyArray<SqlStorageValue>): ReadonlyArray<Row> {
 		return this.ctx.storage.sql.exec(query, ...bindings).toArray();
 	}
@@ -261,6 +269,20 @@ export class Body extends DurableObject<BodyEnv> {
 		const born = this.sql("SELECT COUNT(*) AS n FROM generations")[0];
 
 		if (num(empty ?? {}, "n") === 0 && num(born ?? {}, "n") === 0) this.replaceDraft(SEED);
+
+		this.backfillUsage();
+	}
+
+	private backfillUsage(): void {
+		if (this.ctx.storage.kv.get<boolean>(USAGE_BACKFILLED) === true) return;
+
+		this.ctx.storage.kv.put(USAGE_BACKFILLED, true);
+
+		const ships = this.sql("SELECT created_at, status FROM generations WHERE status != 'building'").map((row) => ({ at: num(row, "created_at"), event: row["status"] === "rejected" ? ("ship_blocked" as const) : ("ship_live" as const) }));
+		const chats = this.sql("SELECT created_at FROM conversations").map((row) => ({ at: num(row, "created_at"), event: "chat_started" as const }));
+		const past = [...ships, ...chats];
+
+		if (past.length > 0) this.ctx.waitUntil(this.env.DIRECTORY.getByName(DIRECTORY_NAME).backfill(this.owner(), past).catch(() => undefined));
 	}
 
 	private replaceDraft(files: Readonly<Record<string, string>>): void {
@@ -463,6 +485,7 @@ export class Body extends DurableObject<BodyEnv> {
 
 		if (report.status === "live") this.promote(id);
 
+		this.count(report.status === "live" ? "ship_live" : "ship_blocked");
 		this.notify();
 
 		return report;
@@ -598,6 +621,7 @@ export class Body extends DurableObject<BodyEnv> {
 				this.promote(id);
 				this.replaceDraft(Object.fromEntries(Object.entries(decodeTree(row.tree)).map(([path, hash]) => [path, this.blob(hash)])));
 				this.notify();
+				this.count("rollback");
 
 				return encodeRollback(Result.succeed(id));
 			},
@@ -608,7 +632,11 @@ export class Body extends DurableObject<BodyEnv> {
 		const now = Date.now();
 		const title = firstMessage.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE);
 
+		const isNew = this.sql("SELECT 1 AS found FROM conversations WHERE name = ?", name).length === 0;
+
 		this.sql("INSERT INTO conversations (name, title, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET updated_at = excluded.updated_at", name, title, now, now);
+
+		if (isNew) this.count("chat_started");
 	}
 
 	markConversation(name: string, state: ConversationState): void {
@@ -633,6 +661,7 @@ export class Body extends DurableObject<BodyEnv> {
 	}
 
 	async resetApp(): Promise<string> {
+		this.count("reset");
 		this.replaceDraft(SEED);
 		this.notify();
 

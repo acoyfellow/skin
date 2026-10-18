@@ -24,6 +24,7 @@ import {
 import { Agent, type AgentEnv } from "./agent";
 import { CodeTools } from "./code-tools";
 import { TOOL_LIST, TOOLS_PATH } from "./tool-list";
+import { statsPage } from "./stats-page";
 import { Body } from "./body";
 import { Builder } from "./builder";
 import { harden, robots, sitemap } from "./pwa";
@@ -33,7 +34,7 @@ import { BodyStore } from "./store";
 import { type CloudflareAuthEnv, cloudflareAuth, SETTINGS_PATH } from "./auth/cloudflare";
 import { COMMAND_SETTINGS_PATH } from "./command-center";
 import { checkRoute } from "./auth/route-check";
-import { Directory } from "./auth/directory";
+import { Directory, DIRECTORY_NAME } from "./auth/directory";
 
 export { Agent, Body, Builder, BodyStore, CodeTools, Directory };
 
@@ -91,6 +92,13 @@ const storedKills = (env: Env, user: UserId, name: ConversationName) =>
 		Effect.map((snapshot) => snapshot.events.filter(isKilled).length),
 	);
 
+const countMessage = async (env: Env, user: UserId, subject: string): Promise<void> => {
+	const directory = env.DIRECTORY.getByName(DIRECTORY_NAME);
+	const grant = await directory.grantFor(subject).catch(() => null);
+
+	await directory.record(user, "message_sent", grant?.model ?? env.MODEL).catch(() => undefined);
+};
+
 const handlers = (env: Env, user: UserId, subject: string) =>
 	AgentRpcs.toLayer({
 		Snapshot: ({ name }) => call(() => agentFor(env, user, name).getSnapshot(name)).pipe(Effect.flatMap(decodeSnapshot), Effect.catchTag("SchemaError", Effect.die)),
@@ -101,6 +109,7 @@ const handlers = (env: Env, user: UserId, subject: string) =>
 				Effect.catchTag("SchemaError", Effect.die),
 				Effect.flatMap(Effect.fromResult),
 				Effect.tap(() => bodyCall(() => bodyOf(env, user).touchConversation(name, text)).pipe(Effect.ignore)),
+				Effect.tap(() => Effect.promise(() => countMessage(env, user, subject)).pipe(Effect.ignore)),
 			),
 		Conversations: () => bodyCall(() => bodyOf(env, user).conversations()).pipe(Effect.flatMap(decodeConversations), Effect.catchTag("SchemaError", Effect.die)),
 		DeleteConversation: ({ name }) =>
@@ -266,6 +275,16 @@ const route = async (request: Request, env: Env): Promise<{ readonly response: R
 	if (url.pathname === "/sitemap.xml") return { response: sitemap(url.origin), indexable: true };
 
 	if (url.pathname === TOOLS_PATH) return { response: Response.json(TOOL_LIST, { headers: { "cache-control": "no-store" } }), indexable: false };
+
+	if ((url.pathname === "/stats" || url.pathname === "/stats.json") && request.method === "GET") {
+		const stats = await env.DIRECTORY.getByName(DIRECTORY_NAME).stats();
+		const headers = { "cache-control": "public, max-age=30" };
+
+		return {
+			response: url.pathname === "/stats.json" ? Response.json(stats, { headers }) : new Response(statsPage(stats, url.origin), { headers: { ...headers, "content-type": "text/html; charset=utf-8" } }),
+			indexable: url.pathname === "/stats",
+		};
+	}
 
 	const open = publicAsset(url.pathname);
 

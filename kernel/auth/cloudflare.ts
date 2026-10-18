@@ -102,6 +102,12 @@ export const directoryOf = (env: CloudflareAuthEnv) =>
 
 export class SignedOut extends Error {}
 
+const anonymousId = async (owner: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`skin:${owner}`));
+
+  return `u${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 20)}`;
+};
+
 export const SETTINGS_PATH = "/settings";
 
 export const freshToken = async (
@@ -280,6 +286,7 @@ export const cloudflareAuth = (
         model: kept?.model ?? null,
       });
       await directory().openSession(session.id, owner, session.expires);
+      await directory().record(await anonymousId(owner), "signed_in").catch(() => undefined);
 
       return redirect(kept?.model === null || kept === null ? "/?settings=open" : "/", [
         clearCookie(jar, jar.flow),

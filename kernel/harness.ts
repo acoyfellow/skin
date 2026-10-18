@@ -100,7 +100,7 @@ const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Conte
 	];
 };
 
-export type Tooling = { readonly web: WebTools; readonly runCode: (code: string) => Promise<string> };
+export type Tooling = { readonly web: WebTools; readonly runCode: (code: string) => Promise<string>; readonly counted: (tool: string) => void };
 
 const failed = (cause: unknown) => text(cause instanceof Error ? cause.message : String(cause));
 
@@ -170,7 +170,18 @@ export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {
 
 				const registry = createRegistry();
 
-				registry.install(defineExtension({ name: "skin", sections: [section("preamble", () => PROMPT, { tag: false })], tools: tools(repo, bodyChanged, yield* Effect.context<never>(), yield* Tools) }));
+				const tooling = yield* Tools;
+
+				const countedTools = tools(repo, bodyChanged, yield* Effect.context<never>(), tooling).map((tool) => ({
+					...tool,
+					execute: (...args: Parameters<typeof tool.execute>) => {
+						tooling.counted(tool.name);
+
+						return tool.execute(...args);
+					},
+				}));
+
+				registry.install(defineExtension({ name: "skin", sections: [section("preamble", () => PROMPT, { tag: false })], tools: countedTools }));
 
 				const harness = yield* Effect.acquireRelease(
 					pi("open", async () => Harness.open(await openDurableObjectSqliteStorage(storage), { models, registry }, CONTEXT)),

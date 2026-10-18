@@ -139,7 +139,7 @@ describe("signed-out callers get no tool calls", () => {
 		const agent = readFileSync("kernel/agent.ts", "utf8");
 		const tools = agent.slice(agent.indexOf("const toolsFor"), agent.indexOf("const runCode"));
 
-		expect(tools).toContain("if (owner === null) return Layer.succeed(Tools, { web: signedOutWeb, runCode: async () => SIGNED_OUT_TOOLS });");
+		expect(tools).toContain("if (owner === null) return Layer.succeed(Tools, { web: signedOutWeb, runCode: async () => SIGNED_OUT_TOOLS, counted: () => undefined });");
 	});
 
 	it("the public tool list names all three", () => {
