@@ -110,11 +110,32 @@ const blockView = (h: H, model: Model, block: Block, key: string, live: boolean)
 
 const seconds = (ms: number): string => (ms / 1000).toFixed(1);
 
-const note = (h: H, tone: string, label: string, text: string): Html =>
-	h.div(
-		[h.Class(`flex gap-3 border-l-2 py-0.5 pl-3 text-[13px] ${tone}`), h.Role("status")],
-		[h.span([h.Class("font-medium")], [label]), h.span([h.Class("text-dim")], [text])],
+const SHORT_REASON = 240;
+
+const MODEL_MESSAGES = /\\?"message\\?"\s*:\s*\\?"([^"\\{]{8,400})/g;
+
+export const shortReason = (text: string): string => {
+	const deepest = [...text.matchAll(MODEL_MESSAGES)].flatMap((match) => (match[1] === undefined ? [] : [match[1]])).at(-1);
+	const prefix = text.includes("{") ? text.slice(0, text.indexOf("{")).trim() : text;
+	const base = deepest === undefined ? text : `${prefix} ${deepest}`.trim();
+
+	return base.length > SHORT_REASON ? `${base.slice(0, SHORT_REASON)}…` : base;
+};
+
+const note = (h: H, tone: string, label: string, text: string): Html => {
+	const short = shortReason(text);
+
+	return h.div(
+		[h.Class(`mx-auto flex w-full max-w-[720px] min-w-0 gap-3 border-l-2 py-0.5 pl-3 text-[13px] ${tone}`), h.Role("status")],
+		[
+			h.span([h.Class("flex-none font-medium")], [label]),
+			h.div([h.Class("min-w-0 text-dim [overflow-wrap:anywhere]")], [
+				h.span([], [short]),
+				...(short === text ? [] : [h.details([h.Class("mt-1")], [h.summary([h.Class("cursor-pointer text-faint hover:text-ink")], ["Full error"]), h.pre([h.Class("mt-1 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-[12px] text-faint")], [text])])]),
+			]),
+		],
 	);
+};
 
 const eventView = (h: H, event: TimelineEvent): Html =>
 	Match.value(event).pipe(

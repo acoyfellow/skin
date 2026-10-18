@@ -118,6 +118,10 @@ const assistantBlocks = (message: AssistantMessage, results: ReadonlyMap<string,
 const resultsOf = (messages: ReadonlyArray<PiMessage>): ReadonlyMap<string, ToolResultMessage> =>
 	new Map(messages.flatMap((message) => (message.role === "toolResult" ? [[message.toolCallId, message] as const] : [])));
 
+const COMPACTION_PREFIX = "The conversation history before this point was compacted into the following summary:";
+
+export const isCompactionSummary = (text: string): boolean => text.startsWith(COMPACTION_PREFIX);
+
 export const toBlocks = (messages: ReadonlyArray<PiMessage>): Block[] => {
 	const results = resultsOf(messages);
 
@@ -127,7 +131,9 @@ export const toBlocks = (messages: ReadonlyArray<PiMessage>): Block[] => {
 				user: ({ content }) => {
 					const text = Match.value(content).pipe(Match.when(Match.string, (value) => value), Match.orElse(textOf));
 
-					return text === "" ? [] : [UserBlock.make({ text })];
+					if (text === "") return [];
+
+					return isCompactionSummary(text) ? [ThoughtBlock.make({ text: `Earlier messages were summarized to save room.\n\n${text.slice(COMPACTION_PREFIX.length).replace("<summary>", "").replace("</summary>", "").trim()}` })] : [UserBlock.make({ text })];
 				},
 				assistant: (assistant) => assistantBlocks(assistant, results),
 				toolResult: () => [],

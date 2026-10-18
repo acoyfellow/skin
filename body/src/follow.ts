@@ -24,16 +24,26 @@ const jumpToBottom = (element: Element): void => {
 	});
 };
 
-type Follower = { following: boolean };
+type Follower = { following: boolean; lastTop: number; programmatic: boolean };
 
 const attach = (element: Element, emit: (following: boolean) => void) => {
-	const follower: Follower = { following: true };
+	const follower: Follower = { following: true, lastTop: element.scrollTop, programmatic: false };
 
 	const setFollowing = (following: boolean) => {
 		if (follower.following === following) return;
 
 		follower.following = following;
 		emit(following);
+	};
+
+	const pin = () => {
+		follower.programmatic = true;
+		jumpToBottom(element);
+		follower.lastTop = element.scrollTop;
+		requestAnimationFrame(() => {
+			follower.programmatic = false;
+			follower.lastTop = element.scrollTop;
+		});
 	};
 
 	const onWheel = (event: Event) => {
@@ -44,39 +54,49 @@ const attach = (element: Element, emit: (following: boolean) => void) => {
 		if (event instanceof KeyboardEvent && ["PageUp", "ArrowUp", "Home"].includes(event.key)) setFollowing(false);
 	};
 
-	const onTouchMove = () => {
+	const onPointerDown = () => {
 		if (!isNearBottom(element)) setFollowing(false);
 	};
 
 	const onScroll = () => {
-		if (isNearBottom(element)) setFollowing(true);
+		const top = element.scrollTop;
+		const movedUp = top < follower.lastTop - 1;
+
+		follower.lastTop = top;
+
+		if (follower.programmatic) return;
+
+		if (movedUp) setFollowing(false);
+		else if (distanceFromBottom(element) < 4) setFollowing(true);
 	};
 
 	const onJump = () => {
 		follower.following = true;
 		emit(true);
-		jumpToBottom(element);
-		requestAnimationFrame(() => jumpToBottom(element));
+		pin();
+		requestAnimationFrame(pin);
 	};
 
 	const onGrow = () => {
-		if (follower.following) jumpToBottom(element);
+		if (follower.following && distanceFromBottom(element) > 0) pin();
 	};
 
 	const observer = new MutationObserver(onGrow);
 
 	observer.observe(element, { childList: true, subtree: true, characterData: true });
 	element.addEventListener("wheel", onWheel, { passive: true });
-	element.addEventListener("touchmove", onTouchMove, { passive: true });
+	element.addEventListener("touchmove", onPointerDown, { passive: true });
+	element.addEventListener("pointerdown", onPointerDown, { passive: true });
 	element.addEventListener("keydown", onKeyDown);
 	element.addEventListener("scroll", onScroll, { passive: true });
 	element.addEventListener(JUMP_EVENT, onJump);
-	jumpToBottom(element);
+	pin();
 
 	return () => {
 		observer.disconnect();
 		element.removeEventListener("wheel", onWheel);
-		element.removeEventListener("touchmove", onTouchMove);
+		element.removeEventListener("touchmove", onPointerDown);
+		element.removeEventListener("pointerdown", onPointerDown);
 		element.removeEventListener("keydown", onKeyDown);
 		element.removeEventListener("scroll", onScroll);
 		element.removeEventListener(JUMP_EVENT, onJump);

@@ -1,7 +1,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Type } from "@earendil-works/pi-ai";
 import { type CreateModelsOptions, createModels, type Provider } from "@earendil-works/pi-ai/models";
-import { type Conversation, createRegistry, defineExtension, defineTool, Harness, LiveDoc, section } from "@earendil-works/pi-durable";
+import { CompactionEntry, type Conversation, createRegistry, defineExtension, defineTool, Harness, LiveDoc, section } from "@earendil-works/pi-durable";
 import { Context, Effect, Layer, Option, Queue, Schema, Stream } from "effect";
 import { type Block, BodyFrame, type ShipReport } from "../shared/protocol";
 import { type BodyUnavailable, Repo, type RepoFiles } from "./files";
@@ -197,7 +197,7 @@ export class Pi extends Context.Service<Pi, Agentic>()("skin/Pi") {
 				);
 
 				const blocks = pi("entries", () => conversation.entries({}, HISTORY_LIMIT, undefined, CONTEXT)).pipe(
-					Effect.map((page) => [...page.items].reverse().flatMap((entry) => entry.model ?? [])),
+					Effect.map((page) => [...page.items].reverse().flatMap((entry) => (CompactionEntry.is(entry) ? [] : (entry.model ?? [])))),
 					Effect.map((messages) => toBlocks(Option.getOrElse(decodePiMessages(messages), () => []))),
 				);
 

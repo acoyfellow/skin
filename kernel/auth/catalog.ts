@@ -65,9 +65,13 @@ const withFetch = (streams: ProviderStreams, send: typeof fetch): ProviderStream
 	streamSimple: (model, context, options) => streams.streamSimple(model, context, { ...options, fetch: send }),
 });
 
+export const MAX_OUTPUT_TOKENS = 32_000;
+
+export const cappedOutput = (maxTokens: number): number => Math.min(maxTokens, MAX_OUTPUT_TOKENS);
+
 const accountModels = [
-	...workersAI.map((model) => ({ ...model, provider: ACCOUNT_PROVIDER, baseUrl: placeholderFor("compat") })),
-	...frontier.map((model) => ({ ...model, provider: ACCOUNT_PROVIDER, baseUrl: placeholderFor(familyOfApi(model.api)) })),
+	...workersAI.map((model) => ({ ...model, maxTokens: cappedOutput(model.maxTokens), provider: ACCOUNT_PROVIDER, baseUrl: placeholderFor("compat") })),
+	...frontier.map((model) => ({ ...model, maxTokens: cappedOutput(model.maxTokens), provider: ACCOUNT_PROVIDER, baseUrl: placeholderFor(familyOfApi(model.api)) })),
 ];
 
 export const routedAccountProvider = (access: () => Promise<RouteAccess>, send: typeof fetch = (input, init) => globalThis.fetch(input, init)): Provider => {

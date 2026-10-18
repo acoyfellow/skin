@@ -230,10 +230,10 @@ const jumpButton = (h: H, model: Model): ReadonlyArray<Html> => {
 
 const conversation = (h: H, model: Model): Html =>
 	h.section(
-		[h.Class("grid min-h-0 grid-rows-[1fr_auto]"), h.AriaLabel("Conversation")],
+		[h.Class("grid min-h-0 min-w-0 grid-rows-[1fr_auto] overflow-hidden"), h.AriaLabel("Conversation")],
 		[
 			h.div([h.Class("relative min-h-0")], [
-				h.div([h.Id("log"), h.Class("@container h-full overflow-y-auto px-5 pt-8 pb-4"), h.Role("log"), h.AriaLive("polite"), h.AriaLabel("Conversation"), h.OnMount(FollowLog())], [transcript(h, model)]),
+				h.div([h.Id("log"), h.Class("@container h-full overflow-x-hidden overflow-y-auto overscroll-contain px-5 pt-8 pb-4 [overflow-wrap:anywhere]"), h.Role("log"), h.AriaLive("polite"), h.AriaLabel("Conversation"), h.OnMount(FollowLog())], [transcript(h, model)]),
 				...jumpButton(h, model),
 			]),
 			h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)]),
