@@ -126,7 +126,7 @@ const groupedRows = (h: H, model: Model): ReadonlyArray<Html> => {
 
 export const chatsPanel = (h: H, model: Model): Html =>
 	h.nav(
-		[h.Id("panel-chats"), h.Class("panel-chats hidden min-h-0 min-w-0 flex-col overflow-hidden border-r border-line bg-panel md:flex"), h.AriaLabel("Chats")],
+		[h.Id("panel-chats"), h.Class(`panel-chats ${model.mobileSheet === "chats" ? "fixed inset-y-0 top-12 left-0 z-30 flex w-[min(320px,86vw)] pb-[env(safe-area-inset-bottom)] shadow-xl" : "hidden"} min-h-0 min-w-0 flex-col overflow-hidden border-r border-line bg-panel md:static md:z-auto md:flex md:w-auto md:shadow-none`), h.AriaLabel("Chats")],
 		[
 			h.div(
 				[h.Class("grid gap-2 p-3")],
@@ -137,7 +137,7 @@ export const chatsPanel = (h: H, model: Model): Html =>
 					),
 					h.input([
 						h.Type("search"),
-						h.Class("h-8 w-full rounded-md border border-line bg-bg px-2.5 text-[13px] placeholder:text-faint"),
+						h.Class("h-9 w-full rounded-md border border-line bg-bg px-2.5 text-[16px] placeholder:text-faint md:h-8 md:text-[13px]"),
 						h.Placeholder("Search chats"),
 						h.AriaLabel("Search chats"),
 						h.Value(model.chatSearch),
@@ -146,6 +146,16 @@ export const chatsPanel = (h: H, model: Model): Html =>
 				],
 			),
 			...Option.match(model.conversationsError, { onNone: () => [], onSome: (reason) => [h.p([h.Class("px-4 py-1 text-[12px] text-bad")], [reason])] }),
-			h.ul([h.Class("min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3")], groupedRows(h, model)),
+			h.ul([h.Class("min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-2 pb-3")], groupedRows(h, model)),
+			h.div(
+				[h.Class("grid gap-1 border-t border-line p-2 md:hidden")],
+				[
+					h.a([h.Href("/?settings=open"), h.DataAttribute("command-center", "open"), h.Class("flex h-10 items-center rounded-md px-3 text-[14px] hover:bg-raised")], ["Settings"]),
+					h.form([h.Method("post"), h.Action("/oauth/logout")], [h.button([h.Type("submit"), h.Class("flex h-10 w-full items-center rounded-md px-3 text-left text-[14px] text-dim hover:bg-raised")], [model.email === "" ? "Sign out" : `Sign out ${model.email}`])]),
+				],
+			),
 		],
 	);
+
+export const sheetBackdrop = (h: H, model: Model): ReadonlyArray<Html> =>
+	model.mobileSheet === "none" ? [] : [h.div([h.Class("fixed inset-0 top-12 z-20 bg-black/40 md:hidden"), h.AriaHidden(true), h.OnClick(Message.ClosedMobileSheet())], [])];

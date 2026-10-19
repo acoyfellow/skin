@@ -52,7 +52,7 @@ export const initialModel = ({ name, isNew, now }: Flags): Model => ({
 	localNotes: [],
 	draft: loadDraft(isNew ? NEW_CHAT_DRAFT : name, now),
 	openFile: OpenFile.Closed(),
-	filesPanelOpen: false,
+	mobileSheet: "none",
 	openThoughts: [],
 	openVersion: Option.none(),
 	versionFilter: "all",

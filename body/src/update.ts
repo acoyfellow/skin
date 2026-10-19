@@ -167,9 +167,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		FinishedCopy: ({ key, ok }) =>
 			ok ? { model: modifyFields(model, { copiedKey: () => key }), commands: [ClearCopied({ key })] } : { model: withNote(model, "Copy failed: the browser blocked the clipboard.") },
 		ExpiredCopied: ({ key }) => ({ model: modifyFields(model, { copiedKey: (current) => (current === key ? "" : current) }) }),
-		ClickedNew: () => ({ model, commands: [StartNewConversation()] }),
+		ClickedNew: () => ({ model: modifyFields(model, { mobileSheet: () => "none" }), commands: [StartNewConversation()] }),
 		LoadedIdentity: ({ email }) => ({ model: modifyFields(model, { email: () => email }) }),
-		ToggledFilesPanel: () => ({ model: modifyFields(model, { filesPanelOpen: (open) => !open }) }),
+		ToggledMobileSheet: ({ sheet }) => ({ model: modifyFields(model, { mobileSheet: (open) => (open === sheet ? "none" : sheet) }) }),
+		ClosedMobileSheet: () => ({ model: modifyFields(model, { mobileSheet: () => "none" }) }),
 		ClickedFile: ({ path }) =>
 			OpenFile.match(model.openFile, {
 				Loaded: (open) => (open.path === path ? { model: modifyFields(model, { openFile: () => OpenFile.Closed() }) } : openFile(model, path)),
@@ -192,7 +193,11 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 		CompletedNavigation: () => ({ model }),
 		LoadedConversations: ({ conversations }) => ({ model: modifyFields(model, { conversations: () => conversations, conversationsError: () => Option.none() }) }),
 		FailedConversations: ({ reason }) => ({ model: modifyFields(model, { conversationsError: () => Option.some(reason) }) }),
-		ClickedConversation: ({ name }) => (name === model.name ? { model } : { model, commands: [OpenConversation({ name: ConversationName.make(name) })] }),
+		ClickedConversation: ({ name }) => {
+			const closed = modifyFields(model, { mobileSheet: () => "none" });
+
+			return name === model.name ? { model: closed } : { model: closed, commands: [OpenConversation({ name: ConversationName.make(name) })] };
+		},
 		UpdatedChatSearch: ({ value }) => ({ model: modifyFields(model, { chatSearch: () => value }) }),
 		ClickedDeleteConversation: ({ name }) => ({ model: modifyFields(model, { confirmingDelete: () => Option.some(name) }) }),
 		CancelledDeleteConversation: () => ({ model: modifyFields(model, { confirmingDelete: () => Option.none() }) }),

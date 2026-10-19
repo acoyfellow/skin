@@ -3,7 +3,7 @@ import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message";
 import { type Model, Phase } from "../model";
 import { activityRow, clock, elapsedSeconds, turnSeconds } from "./activity";
-import { chatsPanel } from "./chats";
+import { chatsPanel, sheetBackdrop } from "./chats";
 import { fileViewer, filesPanel } from "./files";
 import { transcript } from "./transcript";
 import { ComposerKeys } from "../composer";
@@ -29,11 +29,6 @@ const statusOf = (model: Model): Status =>
 const isDown = (model: Model): boolean => Phase.isAnyOf(["Dead", "Reviving"])(model.phase);
 
 const BUTTON = "h-8 rounded-md px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40";
-
-const SECONDARY = `${BUTTON} border border-line-strong bg-bg text-ink hover:bg-raised`;
-
-const button = (h: H, label: string | Html, message: Message, style: string, disabled = false): Html =>
-	h.button([h.Type("button"), h.Disabled(disabled), h.Class(style), h.OnClick(message)], [label]);
 
 const divider = (h: H): Html => h.span([h.Class("h-4 w-px bg-line-strong"), h.AriaHidden(true)], []);
 
@@ -98,33 +93,51 @@ const header = (h: H, model: Model): Html => {
 	const status = statusOf(model);
 
 	return h.header(
-		[h.Class("flex h-14 items-center gap-3 border-b border-line px-5")],
+		[h.Class("flex h-12 items-center gap-2 border-b border-line pr-2 pl-1 pt-[env(safe-area-inset-top)] box-content md:h-14 md:gap-3 md:px-5 md:pt-0")],
 		[
-			h.img([h.Src("/_kernel/icon.png"), h.Alt(""), h.Width("26"), h.Height("26"), h.Class("rounded-md")]),
-			h.h1([h.Class("text-[15px] font-semibold tracking-[-0.01em]")], ["skin"]),
+			h.button(
+				[
+					h.Type("button"),
+					h.Id("open-chats"),
+					h.Class("inline-flex size-10 items-center justify-center rounded-md text-ink hover:bg-raised md:hidden"),
+					h.AriaLabel(model.mobileSheet === "chats" ? "Close chats" : "Open chats"),
+					h.AriaExpanded(model.mobileSheet === "chats"),
+					h.AriaControls("panel-chats"),
+					h.OnClick(Message.ToggledMobileSheet({ sheet: "chats" })),
+				],
+				[h.span([h.Class("grid gap-[4px]"), h.AriaHidden(true)], [h.i([h.Class("block h-[1.5px] w-[18px] rounded bg-current")], []), h.i([h.Class("block h-[1.5px] w-[18px] rounded bg-current")], []), h.i([h.Class("block h-[1.5px] w-[12px] rounded bg-current")], [])])],
+			),
+			h.img([h.Src("/_kernel/icon.png"), h.Alt(""), h.Width("26"), h.Height("26"), h.Class("hidden rounded-md md:block")]),
+			h.h1([h.Class("min-w-0 truncate text-[15px] font-semibold tracking-[-0.01em]")], ["skin"]),
 			h.div(
-				[h.Class("ml-auto flex flex-none items-center gap-4")],
+				[h.Class("ml-auto flex flex-none items-center gap-1 md:gap-4")],
 				[
 					h.span(
-						[h.Id("status"), h.Class(`flex items-center gap-2 text-[13px] ${status.tone}`), h.AriaLive("polite")],
-						[h.i([h.Class(`size-2 rounded-full ${status.mark}`), h.AriaHidden(true)], []), status.label],
+						[h.Id("status"), h.Class(`flex items-center gap-2 px-2 text-[13px] ${status.tone}`), h.AriaLive("polite"), h.Title(status.label)],
+						[h.i([h.Class(`size-2 rounded-full ${status.mark}`), h.AriaHidden(true)], []), h.span([h.Class("hidden sm:inline")], [status.label])],
 					),
 					...(isOffline(model)
 						? [h.button([h.Type("button"), h.Id("retry-connection"), h.Class("rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised"), h.OnClick(Message.ClickedRetryConnection())], ["Retry"])]
 						: []),
-					divider(h),
+					h.span([h.Class("hidden md:block")], [divider(h)]),
 					h.div(
-						[h.Class("flex items-center gap-2")],
+						[h.Class("flex items-center gap-1 md:gap-2")],
 						[
 							panelToggle(h, "chats"),
 							panelToggle(h, "files"),
-							h.span([h.Class("md:hidden")], [button(h, "Files", Message.ToggledFilesPanel(), SECONDARY)]),
-							h.span([h.Class("md:hidden")], [button(h, "New chat", Message.ClickedNew(), SECONDARY)]),
+							h.button(
+								[h.Type("button"), h.Id("open-files"), h.Class(`h-9 rounded-md px-3 text-[13px] md:hidden ${model.mobileSheet === "files" ? "bg-raised text-ink" : "text-dim hover:bg-raised"}`), h.AriaExpanded(model.mobileSheet === "files"), h.AriaControls("panel-files"), h.OnClick(Message.ToggledMobileSheet({ sheet: "files" }))],
+								["Versions"],
+							),
+							h.button(
+								[h.Type("button"), h.Id("mobile-new-chat"), h.Class("inline-flex size-10 items-center justify-center rounded-md text-[22px] leading-none text-ink hover:bg-raised md:hidden"), h.AriaLabel("New chat"), h.OnClick(Message.ClickedNew())],
+								["+"],
+							),
 							h.a(
-								[h.Id("model-settings"), h.Href("/?settings=open"), h.DataAttribute("command-center", "open"), h.AriaHasPopup("dialog"), h.Title("Settings (⌘K)"), h.Class("flex items-center gap-1.5 rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised")],
+								[h.Id("model-settings"), h.Href("/?settings=open"), h.DataAttribute("command-center", "open"), h.AriaHasPopup("dialog"), h.Title("Settings (⌘K)"), h.Class("hidden items-center gap-1.5 rounded border border-line-strong px-2 py-0.5 text-[12px] hover:bg-raised md:flex")],
 								["Settings", h.kbd([h.Class("hidden font-mono text-[11px] text-faint sm:inline")], ["⌘K"])],
 							),
-							signOut(h, model),
+							h.span([h.Class("hidden md:block")], [signOut(h, model)]),
 						],
 					),
 				],
@@ -168,7 +181,7 @@ const composer = (h: H, model: Model): Html =>
 						h.Rows(1),
 						h.Placeholder("Describe a task that takes a few steps"),
 						h.Value(model.draft),
-						h.Class("min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 outline-none placeholder:text-faint focus-visible:outline-none"),
+						h.Class("min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 text-[16px] outline-none md:text-[14px] placeholder:text-faint focus-visible:outline-none"),
 						h.AriaLabel("Message"),
 						h.OnInput((value) => Message.UpdatedDraft({ value })),
 						h.OnMount(ComposerKeys()),
@@ -233,19 +246,20 @@ const conversation = (h: H, model: Model): Html =>
 		[h.Class("grid min-h-0 min-w-0 grid-rows-[1fr_auto] overflow-hidden"), h.AriaLabel("Conversation")],
 		[
 			h.div([h.Class("relative min-h-0")], [
-				h.div([h.Id("log"), h.Class("@container h-full overflow-x-hidden overflow-y-auto overscroll-contain px-5 pt-8 pb-4 [overflow-wrap:anywhere]"), h.Role("log"), h.AriaLive("polite"), h.AriaLabel("Conversation"), h.OnMount(FollowLog())], [transcript(h, model)]),
+				h.div([h.Id("log"), h.Class("@container h-full overflow-x-hidden overflow-y-auto overscroll-contain px-4 pt-5 pb-4 md:px-5 md:pt-8 [overflow-wrap:anywhere]"), h.Role("log"), h.AriaLive("polite"), h.AriaLabel("Conversation"), h.OnMount(FollowLog())], [transcript(h, model)]),
 				...jumpButton(h, model),
 			]),
-			h.div([h.Class("px-5 pb-5")], [activity(h, model), composer(h, model)]),
+			h.div([h.Class("px-3 pb-[max(12px,env(safe-area-inset-bottom))] md:px-5 md:pb-5")], [activity(h, model), composer(h, model)]),
 		],
 	);
 
 export const view = (model: Model, h: H): Document => ({
 	title: Option.match(turnSeconds(model), { onNone: () => "skin", onSome: (seconds) => `skin · working ${clock(seconds)}` }),
 	body: h.div(
-		[h.Class("grid h-full grid-rows-[auto_1fr]")],
+		[h.Class("grid h-[100dvh] grid-rows-[auto_1fr] overflow-hidden")],
 		[
 			header(h, model),
+			...sheetBackdrop(h, model),
 			h.main(
 				[h.Class("panels relative grid min-h-0 grid-cols-1 md:grid-cols-[var(--chats-w,220px)_minmax(0,1fr)_var(--files-w,340px)]")],
 				[

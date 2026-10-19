@@ -51,6 +51,9 @@
 	body,
 	#root {
 		@apply h-full bg-bg text-ink font-sans antialiased;
+		overflow: hidden;
+		overscroll-behavior: none;
+		-webkit-text-size-adjust: 100%;
 		font-size: 14px;
 		line-height: 1.6;
 		font-variant-numeric: tabular-nums;

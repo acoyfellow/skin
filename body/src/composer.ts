@@ -53,14 +53,29 @@ const attach = (element: Element, emit: Emit) => {
 
 	const onInput = () => grow(textarea);
 
+	const onBlur = () => {
+		if (!isTouchKeyboard()) return;
+
+		const settle = () => {
+			if (globalThis.scrollY !== 0 || globalThis.scrollX !== 0) globalThis.scrollTo(0, 0);
+		};
+
+		settle();
+		globalThis.setTimeout(settle, 120);
+		globalThis.setTimeout(settle, 360);
+	};
+
 	textarea.addEventListener("keydown", onKeyDown);
 	textarea.addEventListener("input", onInput);
+	textarea.addEventListener("blur", onBlur);
 	grow(textarea);
-	textarea.focus({ preventScroll: true });
+
+	if (!isTouchKeyboard()) textarea.focus({ preventScroll: true });
 
 	return () => {
 		textarea.removeEventListener("keydown", onKeyDown);
 		textarea.removeEventListener("input", onInput);
+		textarea.removeEventListener("blur", onBlur);
 	};
 };
 

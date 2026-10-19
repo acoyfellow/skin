@@ -458,3 +458,36 @@ describe("who is signed in", () => {
 		);
 	});
 });
+
+describe("phone navigation", () => {
+	test("the chats menu opens from the header, and picking a chat closes it", () => {
+		story(
+			update,
+			given(fresh),
+			message(Message.ToggledMobileSheet({ sheet: "chats" })),
+			model((current) => {
+				expect(current.mobileSheet).toBe("chats");
+			}),
+			message(Message.ClickedConversation({ name: "c-story" })),
+			model((current) => {
+				expect(current.mobileSheet).toBe("none");
+			}),
+		);
+	});
+
+	test("only one sheet is open at a time, and tapping the same one closes it", () => {
+		story(
+			update,
+			given(fresh),
+			message(Message.ToggledMobileSheet({ sheet: "chats" })),
+			message(Message.ToggledMobileSheet({ sheet: "files" })),
+			model((current) => {
+				expect(current.mobileSheet).toBe("files");
+			}),
+			message(Message.ToggledMobileSheet({ sheet: "files" })),
+			model((current) => {
+				expect(current.mobileSheet).toBe("none");
+			}),
+		);
+	});
+});

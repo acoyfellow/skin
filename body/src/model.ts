@@ -2,6 +2,10 @@ import { Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 import { Block, BodyState, ConversationName, ConversationSummary, Live, TimelineEvent } from "./kernel/protocol";
 
+export const MobileSheet = Schema.Literals(["none", "chats", "files"]);
+
+export type MobileSheet = typeof MobileSheet.Type;
+
 export const Phase = defineTaggedUnion({
 	Connecting: {},
 	Idle: {},
@@ -53,7 +57,7 @@ export const Model = Schema.Struct({
 	localNotes: Schema.Array(LocalNote),
 	draft: Schema.String,
 	openFile: OpenFile,
-	filesPanelOpen: Schema.Boolean,
+	mobileSheet: MobileSheet,
 	openThoughts: Schema.Array(Schema.String),
 	openVersion: Schema.Option(Schema.Number),
 	versionFilter: VersionFilter,
