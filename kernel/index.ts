@@ -278,7 +278,7 @@ const route = async (request: Request, env: Env): Promise<{ readonly response: R
 
 	if ((url.pathname === "/stats" || url.pathname === "/stats.json") && request.method === "GET") {
 		const stats = await env.DIRECTORY.getByName(DIRECTORY_NAME).stats();
-		const headers = { "cache-control": "public, max-age=30" };
+		const headers = { "cache-control": "no-store" };
 
 		return {
 			response: url.pathname === "/stats.json" ? Response.json(stats, { headers }) : new Response(statsPage(stats, url.origin), { headers: { ...headers, "content-type": "text/html; charset=utf-8" } }),

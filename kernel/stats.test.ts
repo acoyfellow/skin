@@ -53,6 +53,12 @@ describe("stats page", () => {
 		expect(agoLabel(STATS.lastAt, NOW)).toBe("2 min ago");
 	});
 
+	it("updates itself in place instead of a full-page refresh", () => {
+		expect(html).not.toContain('http-equiv="refresh"');
+		expect(html).toContain("setInterval(swap, 10000)");
+		expect(html).toContain('cache: "no-store"');
+	});
+
 	it("records only anonymous ids, never emails or content", () => {
 		const directory = readFileSync("kernel/auth/directory.ts", "utf8");
 		const record = directory.slice(directory.indexOf("record(person"), directory.indexOf("stats(now"));

@@ -62,6 +62,23 @@ const bars = (rows: ReadonlyArray<Tally>): string => {
 		: `<ul class="bars">${rows.map((row) => `<li><span class="name">${escapeHtml(row.label)}</span><span class="track"><i style="width:${((row.count / peak) * 100).toFixed(1)}%"></i></span><span class="n">${whole.format(row.count)}</span></li>`).join("")}</ul>`;
 };
 
+export const STATS_POLL_MS = 10_000;
+
+const LIVE_SCRIPT = `(() => {
+	const swap = async () => {
+		if (document.visibilityState !== "visible") return;
+		try {
+			const response = await fetch(location.pathname, { cache: "no-store", headers: { accept: "text/html" } });
+			if (!response.ok) return;
+			const next = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("main");
+			const current = document.querySelector("main");
+			if (next && current && next.innerHTML !== current.innerHTML) current.replaceWith(next);
+		} catch {}
+	};
+	setInterval(swap, ${STATS_POLL_MS});
+	document.addEventListener("visibilitychange", swap);
+})();`;
+
 const STYLE = `
 :root{--bg:#fff;--panel:#fafafa;--line:#ebebeb;--ink:#171717;--dim:#4d4d4d;--faint:#737373;--life:#7c3aed}
 @media (prefers-color-scheme:dark){:root{--bg:#0a0a0a;--panel:#111;--line:#242424;--ink:#ededed;--dim:#a1a1a1;--faint:#8f8f8f;--life:#b79cff}}
@@ -73,7 +90,7 @@ header a{color:inherit;text-decoration:none;display:flex;align-items:center;gap:
 header img{border-radius:6px}
 header nav a{color:var(--dim);font-weight:400}
 h1{font-size:24px;letter-spacing:-.02em;margin:0 0 4px;font-weight:600}
-.sub{color:var(--dim);margin:0 0 24px}
+.sub{color:var(--dim);margin:0 0 24px;display:flex;align-items:center;gap:8px}\n.pulse{width:8px;height:8px;border-radius:50%;background:#16a34a;animation:pulse 2s infinite}\n@keyframes pulse{50%{opacity:.3}}\n@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
 .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px}
 @media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
 .tile{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--panel)}
@@ -109,7 +126,6 @@ export const statsPage = (stats: InstanceStats, origin: string): string => {
 <title>${escapeHtml(host)} stats · skin</title>
 <meta name="description" content="Live totals for skin at ${escapeHtml(host)}: people, chats, messages, versions shipped and blocked, and tools used.">
 <link rel="canonical" href="${origin}/stats">
-<meta http-equiv="refresh" content="60">
 ${PWA_HEAD}
 <style>${STYLE}</style>
 </head>
@@ -117,7 +133,7 @@ ${PWA_HEAD}
 <main>
 <header><a href="/"><img src="${KERNEL_PREFIX}/icon-64.png" alt="" width="24" height="24">skin</a><nav><a href="/stats.json">stats.json</a></nav></header>
 <h1>${escapeHtml(host)}</h1>
-<p class="sub">skin at a glance · ${escapeHtml(sinceLabel(stats.firstAt, stats.at))} · last activity ${escapeHtml(agoLabel(stats.lastAt, stats.at))}</p>
+<p class="sub"><span class="pulse" aria-hidden="true"></span>skin at a glance · ${escapeHtml(sinceLabel(stats.firstAt, stats.at))} · last activity ${escapeHtml(agoLabel(stats.lastAt, stats.at))}</p>
 <div class="tiles">
 ${tile(stats.people, stats.people === 1 ? "person signed in" : "people signed in")}
 ${tile(stats.activeToday, "active today", stats.activeToday > 0)}
@@ -134,8 +150,9 @@ ${tile(stats.toolCalls, "tool calls")}
 <section><h2>Routes chosen</h2>${bars(stats.routes)}</section>
 <section><h2>Tools the agent called</h2>${bars(stats.tools)}</section>
 </div>
-<footer><span>Totals only: no names, emails, accounts, chat titles, or content. Updates every minute.</span><a href="/stats.json">stats.json</a><a href="/">Get your own skin</a></footer>
+<footer><span>Totals only: no names, emails, accounts, chat titles, or content. Updates live every 10 seconds.</span><a href="/stats.json">stats.json</a><a href="/">Get your own skin</a></footer>
 </main>
+<script>${LIVE_SCRIPT}</script>
 </body>
 </html>`;
 };
