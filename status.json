@@ -2,7 +2,7 @@
   "state": "deployed",
   "iteration": 4,
   "northStar": "Every person who signs in gets their own app and agent. Asked for a change to their own code, it ships it live for that person only, without a redeploy, and no generated change can take their app down: 0 bricked apps across a frozen set of good and broken change requests, 0 changes visible to any other person, with a rollback receipt for every rejected or reverted generation.",
-  "constraint": "Cloudflare only: Workers, Durable Objects, Worker Loader, Workers AI. The core is a PWA. Effect stays 4.0.0 (Foldkit peer).",
+  "constraint": "Cloudflare only: Workers, Durable Objects, Worker Loader, Workers AI. The core is a PWA. Effect stays 4.1.2 (Foldkit 0.170 peer).",
   "falsifiable": "A Worker can rebuild and swap its own Foldkit + Effect UI and server from source at runtime in under 30 s, and a broken generation is never promoted.",
   "proven": [
     "Worker Loader and @cloudflare/worker-bundler run on the production account: the deployed host builds each generation at runtime (receipts/e2e-deployed.json)",

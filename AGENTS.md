@@ -10,7 +10,7 @@ Read the README first. These rules keep the repository honest and safe to publis
 
 ## Rules
 
-- Effect stays at exactly `4.0.0`. Foldkit 0.166.0 requires that version.
+- Effect stays at exactly `4.1.2`. Foldkit 0.170.0 requires `effect` `~4.1.0`; move both together.
 - Every message that crosses a boundary (Durable Object RPC, HTTP RPC, WebSocket) is a Schema in `shared/protocol.ts`. Values cross the Durable Object boundary as JSON strings, because structured clone drops Effect classes.
 - Use typed errors, not `try`/`catch` that discards the error. The anti-slop lint enforces most of this.
 - Do not add source comments. Use names, types, and small functions instead.

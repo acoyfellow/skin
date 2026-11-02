@@ -12,7 +12,7 @@ This directory is the app the owner is using right now, including the chat you a
 | `src/server.ts` | The server: `export default { fetch(request, env) }`. It runs in its own isolate per generation, with no network access. |
 | `src/checks.ts` | Checks that must all pass before a generation goes live. They run inside the new server. |
 | `src/kernel/protocol.ts` | The kernel's contract (schemas for every request and frame). Read-only: the kernel replaces it on every build. |
-| `package.json` | Dependencies, installed from npm on every build. Effect stays at exactly `4.0.0`. |
+| `package.json` | Dependencies, installed from npm on every build. Effect stays at exactly `4.1.2` (Foldkit 0.170.0 peer). |
 
 The server gets `env.STORE` (`get`, `put`, `delete`, `list(prefix)`, string values) and `env.GENERATION`. Data in `STORE` survives every generation and every rollback.
 
