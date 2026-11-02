@@ -1,5 +1,5 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { Type } from "@earendil-works/pi-ai";
+import { num, obj, opt, str } from "@earendil-works/pi-schema";
 import { type CreateModelsOptions, createModels, type Provider } from "@earendil-works/pi-ai/models";
 import { CompactionEntry, type Conversation, createRegistry, defineExtension, defineTool, Harness, LiveDoc, section } from "@earendil-works/pi-durable";
 import { Context, Effect, Layer, Option, Queue, Schema, Stream } from "effect";
@@ -32,7 +32,7 @@ export class RunEnded extends Schema.TaggedError<RunEnded>()("RunEnded", { statu
 
 const pi = <A>(step: string, run: () => Promise<A>) => Effect.tryPromise({ try: run, catch: (cause) => new HarnessFailed({ step, reason: String(cause) }) });
 
-const text = (value: string) => ({ content: [{ type: "text" as const, text: value }] });
+const text = (value: string) => ({ output: [{ type: "text" as const, text: value }] });
 
 type BodyChanged = (repo: RepoFiles) => Effect.Effect<void>;
 
@@ -54,21 +54,21 @@ const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Conte
 		defineTool({
 			name: "list_files",
 			description: "List every file in the draft of your body.",
-			parameters: Type.Object({}),
+			parameters: obj({}, { open: true }),
 			replay: "safe",
 			execute: () => run(repo.list.pipe(Effect.map((files) => text(files.length > 0 ? files.join("\n") : "(empty draft)")))),
 		}),
 		defineTool({
 			name: "read_file",
 			description: "Read a file from the draft of your body.",
-			parameters: Type.Object({ path: Type.String() }),
+			parameters: obj({ path: str() }, { open: true }),
 			replay: "safe",
 			execute: (args) => run(repo.read(args.path).pipe(Effect.map(Option.match({ onSome: text, onNone: () => text(`No such file: ${args.path}`) })))),
 		}),
 		defineTool({
 			name: "write_file",
 			description: "Create or replace a whole file in the draft. Nothing goes live until you ship.",
-			parameters: Type.Object({ path: Type.String(), content: Type.String() }),
+			parameters: obj({ path: str(), content: str() }, { open: true }),
 			replay: "safe",
 			executionMode: "sequential",
 			execute: (args) => run(repo.write(args.path, args.content).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map(text))),
@@ -76,7 +76,7 @@ const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Conte
 		defineTool({
 			name: "delete_file",
 			description: "Delete a file from the draft. Nothing goes live until you ship.",
-			parameters: Type.Object({ path: Type.String() }),
+			parameters: obj({ path: str() }, { open: true }),
 			replay: "safe",
 			executionMode: "sequential",
 			execute: (args) => run(repo.remove(args.path).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map(text))),
@@ -84,7 +84,7 @@ const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Conte
 		defineTool({
 			name: "ship",
 			description: "Build the draft into a new generation, run the gate, and make it live only if every check passes. Returns each check, with errors for any that failed.",
-			parameters: Type.Object({ message: Type.String({ description: "What this generation changes, in one line" }) }),
+			parameters: obj({ message: str({ description: "What this generation changes, in one line" }) }, { open: true }),
 			replay: "safe",
 			executionMode: "sequential",
 			execute: (args) => run(repo.ship(args.message).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map((report) => text(describeReport(report))))),
@@ -92,7 +92,7 @@ const tools = (repo: RepoFiles, bodyChanged: BodyChanged, context: Context.Conte
 		defineTool({
 			name: "rollback",
 			description: "Make an earlier generation that passed the gate live again. The draft is reset to match it.",
-			parameters: Type.Object({ generation: Type.Number() }),
+			parameters: obj({ generation: num() }, { open: true }),
 			replay: "safe",
 			executionMode: "sequential",
 			execute: (args) => run(repo.rollback(args.generation).pipe(Effect.tap(() => bodyChanged(repo)), Effect.map(text))),
@@ -108,7 +108,7 @@ export const toolingTools = (tooling: Tooling) => [
 	defineTool({
 		name: "web_search",
 		description: "Search the public web with Cloudflare Web Search, on the signed-in person's own account. Returns titles, URLs, and snippets. Discovery only: read a page with web_fetch.",
-		parameters: Type.Object({ query: Type.String({ minLength: 1, maxLength: 512 }), maxResults: Type.Optional(Type.Number({ minimum: 1, maximum: 10 })) }),
+		parameters: obj({ query: str({ minLength: 1, maxLength: 512 }), maxResults: opt(num({ minimum: 1, maximum: 10 })) }, { open: true }),
 		replay: "safe",
 		executionMode: "parallel",
 		execute: (args) => tooling.web.search(args.query, clampResults(args.maxResults)).then((results) => text(describeResults(results)), failed),
@@ -116,7 +116,7 @@ export const toolingTools = (tooling: Tooling) => [
 	defineTool({
 		name: "web_fetch",
 		description: "Fetch a public http or https URL and return its text. HTML is reduced to plain text. Use it to read docs and search results.",
-		parameters: Type.Object({ url: Type.String() }),
+		parameters: obj({ url: str() }, { open: true }),
 		replay: "safe",
 		executionMode: "parallel",
 		execute: (args) => tooling.web.fetchText(args.url).then(text, failed),
@@ -124,7 +124,7 @@ export const toolingTools = (tooling: Tooling) => [
 	defineTool({
 		name: "codemode",
 		description: "Run a JavaScript async function body in a sealed Worker isolate with no network. Await tools.web_search({ query, maxResults }), tools.web_fetch({ url }), tools.list_files(), tools.read_file({ path }); each resolves to text. console.log and the returned value come back. Use it to chain or filter several calls in one step.",
-		parameters: Type.Object({ code: Type.String({ minLength: 1, maxLength: 20000 }) }),
+		parameters: obj({ code: str({ minLength: 1, maxLength: 20000 }) }, { open: true }),
 		replay: "safe",
 		executionMode: "sequential",
 		execute: (args) => tooling.runCode(args.code).then(text, failed),
