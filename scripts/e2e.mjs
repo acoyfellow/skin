@@ -116,7 +116,7 @@ const expectRejected = (report, stage) => {
 
 	const failed = report.checks.find((check) => !check.ok);
 
-	if (failed?.name !== stage) throw new Error(`expected the ${stage} check to fail, but ${failed?.name ?? "nothing"} failed`);
+	if (failed === undefined || (failed.name !== stage && !failed.name.startsWith(`${stage} `))) throw new Error(`expected the ${stage} check to fail, but ${failed?.name ?? "nothing"} failed`);
 
 	return failed;
 };

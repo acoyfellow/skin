@@ -1,11 +1,13 @@
 {
   "target": "local",
-  "base": "http://localhost:8790",
-  "at": "2026-10-12T23:37:19.671Z",
-  "nonce": "7zxg2y",
+  "version": "4032a9d7-13fc-414d-9325-d1e1bef62be6",
+  "commit": "unknown",
+  "base": "http://localhost:8791",
+  "at": "2026-11-02T15:04:42.459Z",
+  "nonce": "fexlje",
   "passed": 10,
   "total": 10,
-  "ms": 140747,
+  "ms": 83099,
   "results": [
     {
       "name": "the seed grows into a live generation that starts in a real browser",
@@ -21,19 +23,19 @@
         "errors": []
       },
       "pass": true,
-      "ms": 23343
+      "ms": 18267
     },
     {
       "name": "a change that does not bundle is rejected and the live app is untouched",
       "expected": "ship rejected at bundle; / still serves the same generation",
       "observed": {
         "generation": 2,
-        "failedCheck": "bundle",
+        "failedCheck": "bundle client",
         "detail": "Build failed with 1 error:",
         "served": 1
       },
       "pass": true,
-      "ms": 80
+      "ms": 59
     },
     {
       "name": "a server that throws when it starts is rejected",
@@ -45,7 +47,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 15116
+      "ms": 8195
     },
     {
       "name": "a change that breaks a behavior the checks cover is rejected",
@@ -59,7 +61,7 @@
         "live": 1
       },
       "pass": true,
-      "ms": 14147
+      "ms": 7143
     },
     {
       "name": "data the server stores survives a new generation and a rollback",
@@ -68,7 +70,7 @@
         "status": 201
       },
       "pass": true,
-      "ms": 9
+      "ms": 6
     },
     {
       "name": "a version interrupted mid-build by a kill never sticks, and shipping again makes it live",
@@ -81,7 +83,7 @@
         "restored": "live"
       },
       "pass": true,
-      "ms": 37628
+      "ms": 19184
     },
     {
       "name": "a good change goes live and renders in the browser",
@@ -90,9 +92,9 @@
         "generation": 8,
         "served": 8,
         "checks": [
-          "bundle:true:13677ms",
-          "boot:true:137ms",
-          "checks:true:12ms",
+          "bundle:true:6803ms",
+          "boot:true:56ms",
+          "checks:true:4ms",
           "page:true:0ms"
         ],
         "report": {
@@ -102,7 +104,7 @@
         }
       },
       "pass": true,
-      "ms": 20425
+      "ms": 13749
     },
     {
       "name": "a page that crashes in the browser is rolled back by the kernel on its own",
@@ -112,17 +114,17 @@
         "report": {
           "generation": 9,
           "ok": false,
-          "detail": "Uncaught Error: e2e 7zxg2y: the page crashes on start"
+          "detail": "Uncaught Error: e2e fexlje: the page crashes on start"
         },
         "delivered": [
           200
         ],
         "liveAfter": 8,
         "status": "rejected",
-        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 8: Uncaught Error: e2e 7zxg2y: the page crashes on start"
+        "note": "crashed in the browser before it ever started, so the kernel rolled back to generation 8: Uncaught Error: e2e fexlje: the page crashes on start"
       },
       "pass": true,
-      "ms": 15767
+      "ms": 8533
     },
     {
       "name": "rolling back makes the seed live again and resets the draft to match",
@@ -133,26 +135,26 @@
         "notes": 1
       },
       "pass": true,
-      "ms": 42
+      "ms": 23
     },
     {
       "name": "another person gets their own app, untouched by everything above",
       "expected": "B grows their own first generation from the seed; B sees none of A's generations, files, or notes; A is unchanged",
       "observed": {
         "a": {
-          "user": "ufe623ff6ee3ebe31abc5",
+          "user": "u7dabd1730a560ab63897",
           "generations": 9,
           "live": 1
         },
         "b": {
-          "user": "ue5e696a2c5473ce46b4e",
+          "user": "u66c1dba0404560be25f2",
           "generations": 1,
           "live": 1,
           "notes": 0
         }
       },
       "pass": true,
-      "ms": 14050
+      "ms": 7568
     }
   ]
 }
