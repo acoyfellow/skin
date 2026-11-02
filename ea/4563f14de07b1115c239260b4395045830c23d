@@ -1,0 +1,19 @@
+receipts/e2e-local.json
+  s_cad21ecb728adb::t_0560ff301c2313 3-7,10,26,33,38,50,64,73,86,95-97,107,117,124,127,138,145,150,157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ea4563f14de07b1115c239260b4395045830c23d",
+  "prompts": {},
+  "sessions": {
+    "s_cad21ecb728adb": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019eb430-11fe-7acf-8326-0dbeb9469573",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
