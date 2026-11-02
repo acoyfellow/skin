@@ -35,6 +35,10 @@
 			{
 				"name": "BUILDER",
 				"class_name": "Builder"
+			},
+			{
+				"name": "DIRECTORY",
+				"class_name": "Directory"
 			}
 		]
 	},
@@ -45,6 +49,12 @@
 				"Agent",
 				"Body",
 				"Builder"
+			]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": [
+				"Directory"
 			]
 		}
 	],
