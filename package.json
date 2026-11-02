@@ -28,23 +28,24 @@
 	},
 	"dependencies": {
 		"@cloudflare/worker-bundler": "0.2.6",
-		"@earendil-works/chord": "1.1.0",
-		"@earendil-works/pi-ai": "^1.2.0",
-		"@earendil-works/pi-durable": "1.1.0",
-		"@effect/platform-browser": "4.0.0",
-		"effect": "4.0.0",
-		"foldkit": "0.168.0",
+		"@earendil-works/chord": "1.5.0",
+		"@earendil-works/pi-ai": "^1.5.0",
+		"@earendil-works/pi-durable": "1.5.0",
+		"@earendil-works/pi-schema": "1.5.0",
+		"@effect/platform-browser": "4.1.2",
+		"effect": "4.1.2",
+		"foldkit": "0.170.0",
 		"tailwindcss": "4.3.3"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^5.20261012.1",
-		"@oxlint/plugins": "1.78.0",
-		"happy-dom": "^20.14.5",
-		"oxlint": "1.78.0",
-		"playwright": "^1.64.0",
-		"sharp": "^0.34.5",
+		"@cloudflare/workers-types": "^5.20261102.1",
+		"@oxlint/plugins": "1.90.0",
+		"happy-dom": "^21.0.4",
+		"oxlint": "1.90.0",
+		"playwright": "^1.64.1",
+		"sharp": "^0.35.5",
 		"typescript": "^7.0.2",
-		"vitest": "^5.0.3",
-		"wrangler": "4.149.0"
+		"vitest": "^5.0.5",
+		"wrangler": "4.156.1"
 	}
 }
